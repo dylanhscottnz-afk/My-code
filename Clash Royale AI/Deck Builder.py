@@ -1,6 +1,7 @@
 import math
 import random
-
+import json
+from pathlib import Path
 
 cards = [
     {'Name': 'Electro Spirit', 'Cost': 1, 'Attack': 1.0, 'Defense': 6.6, 'AirCounter': 1, 'GroundCounter': 1, 'Building': 0, 'SmallSpell': 0, 'BigSpell': 0, 'WinCondition': 0, 'Tank': 0, 'MiniTank': 0, 'Ranged': 0, 'Splash': 0, 'Swarm': 0, 'Support': 1, 'Reset': 1, 'AntiTank': 0},
@@ -534,6 +535,17 @@ synergy_data = [
     {'Name': 'Weak deck 75', 'Cards': ['Inferno Tower', 'Skeleton Army', 'Barbarian Barrel', 'Cannon', 'Knight', 'Berserker', 'Royal Recruits', 'Elite Barbarians'], 'Synergy': 4.2, 'Balance': 1.0},
 ]
 
+card_weights = {
+    card["Name"]: {
+        "w_attack":  random.uniform(-0.1, 0.1),
+        "w_cost":    random.uniform(-0.1, 0.1),
+        "w_defense": random.uniform(-0.1, 0.1),
+        "w_synergy": random.uniform(-0.1, 0.1),
+        "w_balance": random.uniform(-0.1, 0.1),
+        "bias":      0.0
+    }
+    for card in cards
+}
 
 
 def calculate_average_attack_and_cost_and_defense(card_names):
@@ -593,110 +605,142 @@ def calculate_synergy_balance(card_names):
         round(max(1, min(10, balance)), 2)
     )
 
-TRAIN = True
-epochs = 1000
+TRAIN = False
+epochs = 10000
+lr = 0.01
 
-if TRAIN:
-    s_w1 = random.uniform(-1, 1)
-    s_w2 = random.uniform(-1, 1)
-    s_w3 = random.uniform(-1, 1)
-    s_w4 = random.uniform(-1, 1)
-    s_w5 = random.uniform(-1, 1)
-    s_w6 = random.uniform(-1, 1)
-    s_bias = random.uniform(-1, 1)
+def Locate_Model(Name):
+    filename = Name if Name.endswith(".json") else f"{Name}.json"
+    
+    current = Path(__file__).resolve().parent
+    for parent in [current] + list(current.parents):
+        match = next(parent.glob(f"**/{filename}"), None)
+        if match:
+            return match
 
-    b_w1 = random.uniform(-1, 1)
-    b_w2 = random.uniform(-1, 1)
-    b_w3 = random.uniform(-1, 1)
-    b_w4 = random.uniform(-1, 1)
-    b_w5 = random.uniform(-1, 1)
-    b_w6 = random.uniform(-1, 1)
-    b_bias = random.uniform(-1, 1)
+    match = next(Path.cwd().glob(f"**/{filename}"), None)
+    if match:
+        return match
 
-    learning_rate = 0.001
+    raise FileNotFoundError(f"Could not locate '{filename}' anywhere in the workspace.")
 
 
-    card_lookup = {card["Name"]: card for card in cards}
-    for deck in synergy_data:
-        deck["_cached_cards"] = [card_lookup[name] for name in deck["Cards"]]
-    for epoch in range(epochs):
-        random.shuffle(synergy_data)
+def Save_Card_Weights(name):
+    filename = name if name.endswith(".json") else f"{name}.json"
+    
+    try:
+        model_ref = Locate_Model("Balance_And_Synergy.json")
+        target_path = model_ref.parent / filename
+    except FileNotFoundError:
+        target_path = Path(__file__).resolve().parent / filename
 
-        for deck in synergy_data:
+    with open(target_path, "w", encoding="utf-8") as f:
+        json.dump(card_weights, f, indent=2)
 
-            deck_cards = deck["_cached_cards"]
+    print(f"Successfully saved card weights to: {target_path}")
 
-            x1 = sum(card["AirCounter"] for card in deck_cards)
-            x2 = sum(card["GroundCounter"] for card in deck_cards)
-            x3 = sum(card["Building"] for card in deck_cards)
-            x4 = sum(card["SmallSpell"] for card in deck_cards)
-            x5 = sum(card["BigSpell"] for card in deck_cards)
-            x6 = sum(card["WinCondition"] for card in deck_cards)
 
-            synergy_ans = (s_w1*x1) + (s_w2*x2) + (s_w3*x3) + (s_w4*x4) + (s_w5*x5) + (s_w6*x6) + s_bias
 
-            synergy_error = synergy_ans - deck["Synergy"]
 
-            s_w1 -= learning_rate * synergy_error * x1
-            s_w2 -= learning_rate * synergy_error * x2
-            s_w3 -= learning_rate * synergy_error * x3
-            s_w4 -= learning_rate * synergy_error * x4
-            s_w5 -= learning_rate * synergy_error * x5
-            s_w6 -= learning_rate * synergy_error * x6
-            s_bias -= learning_rate * synergy_error
+MODEL_PARAMETERS = (
+    "s_w1", "s_w2", "s_w3", "s_w4", "s_w5", "s_w6", "s_bias",
+    "b_w1", "b_w2", "b_w3", "b_w4", "b_w5", "b_w6", "b_bias")
 
-            balance_ans = (b_w1*x1) + (b_w2*x2) + (b_w3*x3) + (b_w4*x4) + (b_w5*x5) + (b_w6*x6) + b_bias
+Parameters2 = ("w_attack", "w_cost", "w_defense", "w_synergy", "w_balance", "bias")
 
-            balance_error = balance_ans - deck["Balance"]
 
-            b_w1 -= learning_rate * balance_error * x1
-            b_w2 -= learning_rate * balance_error * x2
-            b_w3 -= learning_rate * balance_error * x3
-            b_w4 -= learning_rate * balance_error * x4
-            b_w5 -= learning_rate * balance_error * x5
-            b_w6 -= learning_rate * balance_error * x6
-            b_bias -= learning_rate * balance_error
+def Load_Model(ModelFile, Parameters):
+    
+    if not ModelFile.exists():
+        raise FileNotFoundError(
+            f"No saved model at {ModelFile}. Set TRAIN = True and run once first."
+        )
+    saved = json.loads(ModelFile.read_text(encoding="utf-8"))
+    missing = [name for name in Parameters if name not in saved]
+    if missing:
+        raise ValueError(f"Saved model is missing parameters: {missing}")
+    for name in Parameters:
+        globals()[name] = float(saved[name])
+    
+
+Load_Model(Locate_Model("Balance_And_Synergy.json"), MODEL_PARAMETERS)
 
 w_attack = random.uniform(-1, 1)
 w_cost = random.uniform(-1, 1)
 w_defense = random.uniform(-1, 1)
-W_synergy = random.uniform(-1, 1)
-W_balance = random.uniform(-1, 1)
+w_synergy = random.uniform(-1, 1)
+w_balance = random.uniform(-1, 1)
 bias = random.uniform(-1, 1)
-def Train(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
+def Train_Card_Weights(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
+    all_card_names = [card["Name"] for card in cards]
 
-    
-    
-    for epoch in epochs:
-        
+    for epoch in range(epochs):
+        scores = {}
+        for name in all_card_names:
+            w = card_weights[name]
+            score = (
+                (Set_attack  * w["w_attack"])  +
+                (Set_cost    * w["w_cost"])    +
+                (Set_defense * w["w_defense"]) +
+                (Set_synergy * w["w_synergy"]) +
+                (Set_balance * w["w_balance"]) +
+                w["bias"]
+            )
+            scores[name] = score + random.uniform(-1.0, 1.0)
 
-        Chosen_Cards = random.sample(cards, 8)
+        chosen_deck = sorted(scores, key=scores.get, reverse=True)[:8]
 
-        Attack, Average_Cost, Defense = calculate_average_attack_and_cost_and_defense(Chosen_Cards)
-        Synergy, Balance = calculate_synergy_balance(Chosen_Cards)
+        att, cost, df = calculate_average_attack_and_cost_and_defense(chosen_deck)
+        syn, bal = calculate_synergy_balance(chosen_deck)
 
-        Ans = (w_attack * Attack) + (w_cost * Average_Cost) + (w_defense * Defense) + (W_synergy * Synergy) + (W_balance * Balance) + bias
-    
-        error = Ans - (Set_attack + Set_cost + Set_defense + Set_synergy + Set_balance)
-        
-        w_attack -= learning_rate * error * Attack
-        w_cost -= learning_rate * error * Average_Cost
-        w_defense -= learning_rate * error * Defense
-        W_synergy -= learning_rate * error * Synergy
-        W_balance -= learning_rate * error * Balance
-        bias -= learning_rate * error
-        
+        err_attack  = att - Set_attack
+        err_cost    = cost - Set_cost
+        err_defense = df - Set_defense
+        err_synergy = syn - Set_synergy
+        err_balance = bal - Set_balance
+
+        total_loss = (
+            abs(err_attack) +
+            abs(err_cost) * 2.0 +
+            abs(err_defense) +
+            abs(err_synergy) +
+            abs(err_balance)
+        )
+
+        reward = -total_loss
+
+        for name in chosen_deck:
+            w = card_weights[name]
+            w["w_attack"]  += lr * reward * Set_attack  * 0.01
+            w["w_cost"]    += lr * reward * Set_cost    * 0.01
+            w["w_defense"] += lr * reward * Set_defense * 0.01
+            w["w_synergy"] += lr * reward * Set_synergy * 0.01
+            w["w_balance"] += lr * reward * Set_balance * 0.01
+            w["bias"]      += lr * reward * 0.01
+
+
+
 
 def Use_Deck_Model(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
-    Train(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance)
-    
-    Ans = (w_attack * Set_attack) + (w_cost * Set_cost) + (w_defense * Set_defense) + (W_synergy * Set_synergy) + (W_balance * Set_balance) + bias
-    return Ans
+    if TRAIN:
+        Train_Card_Weights(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance)
 
-def Give_Deck(Deck):
-    Attack, Average_Cost, Defense = calculate_average_attack_and_cost_and_defense(Deck)
-    Synergy, Balance = calculate_synergy_balance(Deck)
-    return Use_Deck_Model(Attack, Average_Cost, Defense, Synergy, Balance)
+    all_card_names = [card["Name"] for card in cards]
+    final_scores = {}
+
+    for name in all_card_names:
+        w = card_weights[name]
+        final_scores[name] = (
+            (Set_attack  * w["w_attack"])  +
+            (Set_cost    * w["w_cost"])    +
+            (Set_defense * w["w_defense"]) +
+            (Set_synergy * w["w_synergy"]) +
+            (Set_balance * w["w_balance"]) +
+            w["bias"]
+        )
+
+    return sorted(final_scores, key=final_scores.get, reverse=True)[:8]
+
 
 
 AttackRating = 7
@@ -706,3 +750,6 @@ SynergyRating = 8
 BalanceRating = 9
 
 print(Use_Deck_Model(AttackRating, CostRating, DefenceRating, SynergyRating, BalanceRating))
+
+if TRAIN:
+    Save_Card_Weights("Deck_Builder_Weights.json")
