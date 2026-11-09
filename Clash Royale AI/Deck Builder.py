@@ -663,7 +663,7 @@ w_defense = random.uniform(-1, 1)
 W_synergy = random.uniform(-1, 1)
 W_balance = random.uniform(-1, 1)
 bias = random.uniform(-1, 1)
-def Make_Deck(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
+def Train(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
     
     for epoch in epochs:
         
@@ -682,3 +682,17 @@ def Make_Deck(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
         w_defense -= learning_rate * error * Defense
         W_synergy -= learning_rate * error * Synergy
         W_balance -= learning_rate * error * Balance
+        bias -= learning_rate * error
+        
+
+def Use_Deck_Model(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
+    Ans = (w_attack * Set_attack) + (w_cost * Set_cost) + (w_defense * Set_defense) + (W_synergy * Set_synergy) + (W_balance * Set_balance) + bias
+    return Ans
+
+def Give_Deck(Deck):
+    Attack, Average_Cost, Defense = calculate_average_attack_and_cost_and_defense(Deck)
+    Synergy, Balance = calculate_synergy_balance(Deck)
+    return Use_Deck_Model(Attack, Average_Cost, Defense, Synergy, Balance)
+
+
+print("Synergy Weights:", s_w1, s_w2, s_w3, s_w4, s_w5, s_w6, s_bias)
