@@ -37,7 +37,7 @@ for epoch in range(epochs):
         w_2 -= learning_rate * error * x2
         bias -= learning_rate * error
         
-        
+
 
 
 Num1 = 12
