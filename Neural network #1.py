@@ -321,7 +321,7 @@ w_3 = random.uniform(-1, 1)
 bias = random.uniform(-1, 1)
 
 learning_rate = 0.01
-epochs = 5000
+epochs = 1000
 
 
 for epoch in range(epochs):
@@ -361,3 +361,30 @@ for epoch in range(epochs):
 
 
 
+def rate_deck(card_names):
+    total_attack = 0
+    total_defense = 0
+    total_cost = 0
+
+    if len(card_names) != 8:
+        raise ValueError("A deck must contain exactly 8 cards")
+
+    for card_name in card_names:
+        card = next((c for c in cards if c["Name"] == card_name), None)
+
+        if card is None:
+            raise ValueError(f"Card not found: {card_name}")
+
+        total_attack += card["Attack"]
+        total_defense += card["Defense"]
+        total_cost += card["Cost"]
+
+    x1 = total_attack / 8
+    x2 = total_defense / 8
+    x3 = total_cost / 8
+
+    rating = w_1 * x1 + w_2 * x2 + w_3 * x3 + bias
+
+    return round(rating, 3)
+
+print(rate_deck(["Hog Rider", "Musketeer", "Valkyrie", "Skeletons", "Fireball", "Cannon", "Ice Spirit", "The Log"]))
