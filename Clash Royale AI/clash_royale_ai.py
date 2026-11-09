@@ -726,6 +726,6 @@ def Give_rating(card_names):
 
 
 
-Data = ['P.E.K.K.A', 'Battle Ram', 'Bandit', 'Royal Ghost', 'Electro Wizard', 'Magic Archer', 'Zap', 'Poison']
+Data = ['Golden Knight', 'Knight', 'Skeleton Army', 'Dart Goblin', 'Wall Breakers', 'Skeleton Barrel', 'Cannon', 'The Log']
 
 print(Give_rating(Data))
