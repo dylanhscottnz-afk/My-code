@@ -634,10 +634,8 @@ if TRAIN:
 
         for deck in synergy_data:
 
-            # Find the 8 cards
             deck_cards = deck["_cached_cards"]
 
-            # Automatically calculate inputs
             x1 = sum(card["AirCounter"] for card in deck_cards)
             x2 = sum(card["GroundCounter"] for card in deck_cards)
             x3 = sum(card["Building"] for card in deck_cards)
@@ -645,7 +643,6 @@ if TRAIN:
             x5 = sum(card["BigSpell"] for card in deck_cards)
             x6 = sum(card["WinCondition"] for card in deck_cards)
 
-            # Synergy neuron
             synergy_ans = (s_w1*x1) + (s_w2*x2) + (s_w3*x3) + (s_w4*x4) + (s_w5*x5) + (s_w6*x6) + s_bias
 
             synergy_error = synergy_ans - deck["Synergy"]
@@ -658,7 +655,6 @@ if TRAIN:
             s_w6 -= learning_rate * synergy_error * x6
             s_bias -= learning_rate * synergy_error
 
-            # Balance neuron
             balance_ans = (b_w1*x1) + (b_w2*x2) + (b_w3*x3) + (b_w4*x4) + (b_w5*x5) + (b_w6*x6) + b_bias
 
             balance_error = balance_ans - deck["Balance"]
@@ -672,7 +668,7 @@ if TRAIN:
             b_bias -= learning_rate * balance_error
 
 
-    print("Stage 1 complete; training stage 2...")
+    print("Stage 1 complete, onto stage 2")
 
     w_balance = random.uniform(-1, 1)
     w_synergy = random.uniform(-1, 1)
