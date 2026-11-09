@@ -606,7 +606,7 @@ def calculate_synergy_balance(card_names):
     )
 
 TRAIN = False
-epochs = 10000
+epochs = 50000
 lr = 0.01
 
 def Locate_Model(Name):
@@ -647,7 +647,7 @@ MODEL_PARAMETERS = (
     "b_w1", "b_w2", "b_w3", "b_w4", "b_w5", "b_w6", "b_bias")
 
 Parameters2 = ("w_attack", "w_cost", "w_defense", "w_synergy", "w_balance", "bias")
-
+Parameters3 = ("cards", "data", "synergy_data")
 
 def Load_Model(ModelFile, Parameters):
     
@@ -701,7 +701,7 @@ def Train_Card_Weights(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balan
 
         total_loss = (
             abs(err_attack) +
-            abs(err_cost) * 2.0 +
+            abs(err_cost) +
             abs(err_defense) +
             abs(err_synergy) +
             abs(err_balance)
@@ -741,15 +741,25 @@ def Use_Deck_Model(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
 
     return sorted(final_scores, key=final_scores.get, reverse=True)[:8]
 
+def Print_Values(Deck):
+    AttackResult, CostResult, DefenceResult = calculate_average_attack_and_cost_and_defense(Deck)
+    SynergyResult, BalanceResult = calculate_synergy_balance(Deck)
 
+    print(f"Attack: {AttackResult}")
+    print(f"Cost: {CostResult}")
+    print(f"Defense: {DefenceResult}")
+    print(f"Synergy: {SynergyResult}")
+    print(f"Balance: {BalanceResult}")
 
-AttackRating = 7
-DefenceRating = 8.5
+AttackRating = 8
+DefenceRating = 8
 CostRating = 3
 SynergyRating = 8
-BalanceRating = 9
+BalanceRating = 8
 
-print(Use_Deck_Model(AttackRating, CostRating, DefenceRating, SynergyRating, BalanceRating))
+chosen_deck = Use_Deck_Model(AttackRating, CostRating, DefenceRating, SynergyRating, BalanceRating)
+print(f"Chosen Deck: {chosen_deck}")
+Print_Values(chosen_deck)
 
 if TRAIN:
     Save_Card_Weights("Deck_Builder_Weights.json")
