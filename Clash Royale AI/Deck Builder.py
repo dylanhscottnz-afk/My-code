@@ -657,14 +657,28 @@ if TRAIN:
             b_w6 -= learning_rate * balance_error * x6
             b_bias -= learning_rate * balance_error
 
-
-
-for epoch in epochs:
+w_attack = random.uniform(-1, 1)
+w_cost = random.uniform(-1, 1)
+w_defense = random.uniform(-1, 1)
+W_synergy = random.uniform(-1, 1)
+W_balance = random.uniform(-1, 1)
+bias = random.uniform(-1, 1)
+def Make_Deck(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
     
+    for epoch in epochs:
+        
 
-    Chosen_Cards = random.sample(cards, 8)
+        Chosen_Cards = random.sample(cards, 8)
 
-    Attack, Average_Cost, Defense = calculate_average_attack_and_cost_and_defense(Chosen_Cards)
-    Synergy, Balance = calculate_synergy_balance(Chosen_Cards)
+        Attack, Average_Cost, Defense = calculate_average_attack_and_cost_and_defense(Chosen_Cards)
+        Synergy, Balance = calculate_synergy_balance(Chosen_Cards)
 
-    Ans = 
+        Ans = (w_attack * Attack) + (w_cost * Average_Cost) + (w_defense * Defense) + (W_synergy * Synergy) + (W_balance * Balance) + bias
+    
+        error = Ans - (Set_attack + Set_cost + Set_defense + Set_synergy + Set_balance)
+        
+        w_attack -= learning_rate * error * Attack
+        w_cost -= learning_rate * error * Average_Cost
+        w_defense -= learning_rate * error * Defense
+        W_synergy -= learning_rate * error * Synergy
+        W_balance -= learning_rate * error * Balance
