@@ -169,6 +169,7 @@ def Load_Model(ModelFile, Parameters):
 def Data_Fingerprint():
     baseline = [globals()[name] for name in MODEL_PARAMETERS]
     content = DATA_FILE.read_bytes() + json.dumps(baseline).encode() + repr(ROLE_KEYS).encode()
+    # Runtime settings (including req and TRAIN) do not change learned features.
     return hashlib.sha256(content).hexdigest()
 
 
@@ -335,8 +336,51 @@ def Target_Loss(values, targets):
     return np.mean(errors ** 2 * np.asarray(TARGET_IMPORTANCE), axis=1)
 
 
+def Required_Cards():
+    if not isinstance(req, (list, tuple)) or any(not isinstance(name, str) for name in req):
+        raise ValueError('req must be a list of card names, for example ["Hog Rider", "Firecracker"]')
+    canonical = {name.casefold(): name for name in card_names}
+    required = []
+    for name in req:
+        match = canonical.get(name.strip().casefold())
+        if match is None:
+            raise ValueError(f'Unknown required card: {name!r}. Use a name from the cards table.')
+        if match in required:
+            raise ValueError(f'Duplicate required card: {match}')
+        required.append(match)
+    if len(required) > 8:
+        raise ValueError('req can contain at most eight different cards')
+    if 'Mirror' in required:
+        raise ValueError('Mirror cannot be required because this builder only searches fixed-cost decks')
+    counts = {key: sum(card_lookup[name][key] for name in required) for key in ROLE_KEYS}
+    if counts['Champion'] > 1 or counts['WinCondition'] > 2 or counts['Building'] > 2 or counts['Spell'] > 4:
+        raise ValueError('Required cards conflict with the composition limits: one champion, two win conditions, two buildings, four spells')
+    if len(required) == 8 and not Proper_Deck(required):
+        raise ValueError('The eight required cards do not meet the deck composition rules')
+    return frozenset(required)
+
+
+def Required_Seeds(rows, required):
+    if not required:
+        return sorted({tuple(sorted(row['Cards'])) for row in rows if Proper_Deck(row['Cards'])})
+    # Insert every required card first, then try each way to retain seed support.
+    # This works even when no example deck contains the requested combination.
+    candidates = set()
+    needed = 8 - len(required)
+    for row in rows:
+        optional = sorted(set(row['Cards']) - required)
+        for support in itertools.combinations(optional, needed):
+            deck = tuple(sorted(required.union(support)))
+            if Proper_Deck(deck):
+                candidates.add(deck)
+    if not candidates:
+        raise ValueError('No valid completion was found for req under the composition rules. Change the required combination or include fewer cards; required cards will never be dropped.')
+    return sorted(candidates)
+
+
 def Use_Deck_Model(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
     global last_search_report
+    required = Required_Cards()
     targets = (Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance)
     if not all(math.isfinite(float(v)) for v in targets):
         raise ValueError('Targets must be finite numbers')
@@ -351,8 +395,8 @@ def Use_Deck_Model(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
     # Exclude held-out groups even from search seeds and pair-based retrieval.
     training_rows = [row for row in data if row['Name'].split(' / ')[0] not in model_report['test_groups']]
     positive_rows = [row for row in training_rows if row['target'] >= 7]
-    eligible = sorted({n for row in positive_rows for n in row['Cards']} - {'Mirror'})
-    candidates = sorted({tuple(sorted(row['Cards'])) for row in positive_rows if Proper_Deck(row['Cards'])})
+    eligible = sorted(({n for row in positive_rows for n in row['Cards']} | required) - {'Mirror'})
+    candidates = Required_Seeds(positive_rows, required)
     if not candidates:
         raise ValueError('No valid seed decks satisfy the composition rules')
     evaluated = set()
@@ -371,6 +415,8 @@ def Use_Deck_Model(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
         neighbors = set()
         for _, deck, _ in beam:
             for index in range(8):
+                if deck[index] in required:
+                    continue  # Required cards are locked throughout the entire search.
                 for name in eligible:
                     if name in deck:
                         continue
@@ -388,7 +434,10 @@ def Use_Deck_Model(Set_attack, Set_cost, Set_defense, Set_synergy, Set_balance):
         if [item[1] for item in beam] == [item[1] for item in next_beam]:
             break
         beam = next_beam
+    if not required.issubset(best[1]):
+        raise RuntimeError('Search returned a deck missing required cards')
     last_search_report = {'targets': targets, 'values': best[2].tolist(), 'evaluated': len(evaluated),
+                          'required': sorted(required),
                           'within_tolerance': (np.abs(best[2][:5] - targets) <= TARGET_TOLERANCES).tolist()}
     return list(best[1])
 
@@ -403,6 +452,8 @@ def Print_Values(Deck):
         print(f'{label}: {value:.2f}{suffix}')
     print('Overall rating estimates structural quality, not a win probability.')
     if last_search_report:
+        if last_search_report.get('required'):
+            print('Required cards: ' + ', '.join(last_search_report['required']))
         print(f"Searched {last_search_report['evaluated']} complete decks.")
         for i, label in enumerate(('Attack', 'Cost', 'Defense', 'Synergy', 'Balance')):
             target = last_search_report['targets'][i]
@@ -422,6 +473,10 @@ DefenceRating = 9.5
 CostRating = 2.7
 SynergyRating = 10
 BalanceRating = 10
+req = [
+    # "Hog Rider",
+    # "Firecracker",
+]
 last_search_report = {}
 
 
@@ -437,4 +492,5 @@ def main():
 if __name__ == '__main__':
     main()
     
+
 
