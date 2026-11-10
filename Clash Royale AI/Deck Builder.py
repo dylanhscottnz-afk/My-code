@@ -101,7 +101,7 @@ def calculate_synergy_balance(card_names):
     )
 
 TRAIN = True
-epochs = 1000
+epochs = 5000
 lr = 0.01
 
 def Locate_Model(Name):
@@ -159,6 +159,9 @@ def Load_Model(ModelFile, Parameters):
     
 
 Load_Model(Locate_Model("Balance_And_Synergy.json"), MODEL_PARAMETERS)
+
+if TRAIN == False:
+    Load_Model(Locate_Model("Deck_Builder_Weights.json"), Parameters2)
 
 w_attack = random.uniform(-1, 1)
 w_cost = random.uniform(-1, 1)
