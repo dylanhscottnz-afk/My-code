@@ -98,12 +98,12 @@ def calculate_synergy_balance(card_names):
         return calculate_base_synergy_balance(card_names)
     return tuple(Deck_Values([card_names])[0][3:5])
 
-TRAIN = True  # Set False after training to load this builder's own saved model.
+TRAIN = False  # Set False after training to load this builder's own saved model.
 # Training solves regularized squared error exactly; no noisy reward updates or epoch loop.
 MODEL_VERSION = 1
 MODEL_FILE = Path(__file__).resolve().parent / "Ai Models" / "Clash Royale" / "ChatGPT_Deck_Builder_Weights.json"
 SEED = 67
-SEARCH_ROUNDS = 8
+SEARCH_ROUNDS = 5000
 SEARCH_WIDTH = 8
 TARGET_TOLERANCES = (1.0, 0.15, 1.0, 1.0, 1.0)  # attack, elixir, defense, synergy, balance
 TARGET_IMPORTANCE = (1.0, 1.0, 1.0, 1.0, 1.0)
@@ -169,7 +169,6 @@ def Load_Model(ModelFile, Parameters):
 def Data_Fingerprint():
     baseline = [globals()[name] for name in MODEL_PARAMETERS]
     content = DATA_FILE.read_bytes() + json.dumps(baseline).encode() + repr(ROLE_KEYS).encode()
-    content += Path(__file__).read_bytes()
     return hashlib.sha256(content).hexdigest()
 
 
@@ -418,9 +417,8 @@ def Print_Values(Deck):
             print('Exact average elixir is limited to steps of 0.125 for eight fixed-cost cards.')
 
 
-# Keep the original settings together here. All five are optimization targets.
-AttackRating = 5
-DefenceRating = 10
+AttackRating = 8
+DefenceRating = 9.5
 CostRating = 2.7
 SynergyRating = 10
 BalanceRating = 10
