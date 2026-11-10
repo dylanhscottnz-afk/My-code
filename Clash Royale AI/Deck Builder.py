@@ -5,7 +5,7 @@ from pathlib import Path
 
 DATA_FILE = Path(__file__).resolve().parent.parent / 'Training_Data' / 'Clash_Royale.json'
 
-
+random.seed(67)
 def _load_training_data():
     if not DATA_FILE.exists():
         raise FileNotFoundError(f"Training data not found: {DATA_FILE}")
@@ -250,11 +250,11 @@ def Print_Values(Deck):
     print(f"Synergy: {SynergyResult}")
     print(f"Balance: {BalanceResult}")
 
-AttackRating = 6
-DefenceRating = 9
+AttackRating = 5
+DefenceRating = 10
 CostRating = 2.7
 SynergyRating = 10
-BalanceRating = 8
+BalanceRating = 10
 
 chosen_deck = Use_Deck_Model(AttackRating, CostRating, DefenceRating, SynergyRating, BalanceRating)
 print(f"Chosen Deck: {chosen_deck}")
