@@ -229,7 +229,7 @@ def Drive(Weights, num):
     
 
 def Start_Race():
-    Create_Clones(Main_weights, 10)
+    Create_Clones(Main_weights, 30)
     Start_GUI()
 
 

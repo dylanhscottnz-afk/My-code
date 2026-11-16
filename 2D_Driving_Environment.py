@@ -9,12 +9,15 @@ Update, Reset, Start_GUI, Render and Close_GUI.
 
 Angles: 0 = UP, 90 = RIGHT, 180 = DOWN, 270 = LEFT.
 Raycasts report the distance in pixels to the nearest black wall.
-No extra dependencies: uses Python's standard tkinter graphics library.
+Display dependency: python3 -m pip install pygame
+Run this file directly for a looping ten-car demonstration.
+Import it from your AI to display the cars controlled by that AI.
 """
 
 import math
 import threading
-import tkinter as tk
+import random
+import time
 from dataclasses import dataclass
 from typing import Optional, Union
 
@@ -22,8 +25,8 @@ from typing import Optional, Union
 # World / road settings
 # ---------------------------------------------------------------------------
 WIDTH, HEIGHT = 1040, 760
-BACKGROUND = "#080808"
-ROAD_COLOR = "#f7f7f7"
+BACKGROUND = "#000000"
+ROAD_COLOR = "#ffffff"
 
 # Two rectangles make an easy, wide, closed square-like road.
 # White between OUTER and INNER; everywhere else is black.
@@ -32,7 +35,9 @@ INNER = (270.0, 232.0, 770.0, 518.0)
 CENTER_X = (OUTER[0] + OUTER[2]) / 2
 CENTER_Y = (OUTER[1] + OUTER[3]) / 2
 
-CAR_RADIUS = 7.0
+CAR_LENGTH = 26.0
+CAR_WIDTH = 14.0
+CAR_RADIUS = math.hypot(CAR_LENGTH / 2, CAR_WIDTH / 2)
 MAX_RAY_DISTANCE = 1400.0
 MAX_SPEED = 165.0        # pixels per second
 ACCELERATION = 165.0    # pixels per second squared
@@ -106,6 +111,31 @@ def _track_angle(x, y):
     return math.atan2((y - CENTER_Y) / ry, (x - CENTER_X) / rx)
 
 
+def _car_corners(x, y, angle):
+    a = math.radians(angle)
+    fx, fy = math.sin(a), -math.cos(a)
+    sx, sy = math.cos(a), math.sin(a)
+    return [(x+fx*f+sx*s, y+fy*f+sy*s)
+            for f, s in ((13, 7), (13, -7), (-13, -7), (-13, 7))]
+
+
+def _car_on_road(x, y, angle):
+    # Edges cannot cross the central wall: test polygon/rectangle separation.
+    corners = _car_corners(x, y, angle)
+    if not all(_point_in_rect(px, py, OUTER) for px, py in corners):
+        return False
+    ix0, iy0, ix1, iy1 = INNER
+    wall = ((ix0, iy0), (ix1, iy0), (ix1, iy1), (ix0, iy1))
+    a = math.radians(angle)
+    for ax, ay in ((1, 0), (0, 1), (math.sin(a), -math.cos(a)),
+                   (math.cos(a), math.sin(a))):
+        car_proj = [px*ax+py*ay for px, py in corners]
+        wall_proj = [px*ax+py*ay for px, py in wall]
+        if max(car_proj) < min(wall_proj) or max(wall_proj) < min(car_proj):
+            return True
+    return False
+
+
 @dataclass
 class Car:
     car_id: Union[int, str]
@@ -126,15 +156,21 @@ class Car:
     best_lap_time: Optional[float] = None
     still_since: float = 0.0
     still_distance: float = 0.0
+    color: str = "#00b7eb"
 
 
 class DrivingEnvironment:
     def __init__(self):
         self.cars = {}
         self._next_id = 1
+        self.max_car_time = MAX_CAR_TIME
         self.window = None
         self.canvas = None
         self._user_closed = False
+        self._pygame = None
+        self._last_frame = 0.0
+        self._caption = ""
+        self._colors = random.SystemRandom()
 
     def create_car(self, name=None):
         if name is None:
@@ -148,8 +184,9 @@ class DrivingEnvironment:
         # Place up to 10 cars separately along the left straight, all at 0°.
         index = len(self.cars)
         lane_x = (OUTER[0] + INNER[0]) / 2
-        start_y = 466.0 - (index % 10) * 13.0
+        start_y = 550.0 - (index % 10) * 28.0
         car = Car(name, lane_x, start_y)
+        car.color = self._colors.choice(CAR_COLORS)
         car.last_track_angle = _track_angle(car.x, car.y)
         self.cars[name] = car
         return name
@@ -177,12 +214,14 @@ class DrivingEnvironment:
 
     def update(self, dt=DT):
         dt = max(0.0, min(float(dt), 0.1))
+        if self.window is not None:
+            self._pump_events()
         for car in list(self.cars.values()):
             if car.crashed:
                 continue
             car.elapsed += dt
 
-            if car.elapsed >= MAX_CAR_TIME:
+            if self.max_car_time is not None and car.elapsed >= self.max_car_time:
                 car.crashed = True
                 car.timed_out = True
                 continue
@@ -199,7 +238,7 @@ class DrivingEnvironment:
             rad = math.radians(car.angle)
             nx = car.x + math.sin(rad) * car.speed * dt
             ny = car.y - math.cos(rad) * car.speed * dt
-            if not _road_contains(nx, ny, CAR_RADIUS):
+            if not _car_on_road(nx, ny, car.angle):
                 car.crashed = True
                 continue
 
@@ -246,6 +285,7 @@ class DrivingEnvironment:
         }
 
     def check_progress(self, car_id):
+        """Average speed is distance / elapsed simulation time, in pixels/second."""
         car = self.cars[car_id]
         return {
             "crashed": car.crashed,
@@ -253,6 +293,7 @@ class DrivingEnvironment:
             "forward_progress": round(car.progress, 2),
             "fastest_lap_time": car.best_lap_time if car.best_lap_time is not None else 1,
             "laps": car.laps,
+            "average_speed": car.distance / car.elapsed if car.elapsed > 0 else 0.0,
             "elapsed": round(car.elapsed, 2),
             "reward": self.get_rewards(car_id)["total"],
             "timed_out": car.timed_out,
@@ -267,6 +308,7 @@ class DrivingEnvironment:
             "forward_progress": round(car.progress, 2),
             "lap_count": car.laps,
             "best_lap_time": car.best_lap_time,
+            "average_speed": car.distance / car.elapsed if car.elapsed > 0 else 0.0,
             "elapsed": round(car.elapsed, 2),
             "reward": self.get_rewards(car_id),
             "timed_out": car.timed_out,
@@ -283,117 +325,120 @@ class DrivingEnvironment:
             car.crashed = True
         self.close_gui()
 
+    def _pump_events(self):
+        if self.window is None:
+            return
+        if threading.current_thread() is not threading.main_thread():
+            raise RuntimeError("GUI calls must run on the main Python thread.")
+        for event in self._pygame.event.get():
+            if event.type == self._pygame.QUIT or (
+                event.type == self._pygame.KEYDOWN and event.key == self._pygame.K_ESCAPE
+            ):
+                self._on_user_close()
+                break
+
     def start_gui(self):
         if self.window is not None:
             return True
         if threading.current_thread() is not threading.main_thread():
             raise RuntimeError("Start_GUI() must run on the main Python thread.")
         try:
-            self.window = tk.Tk()
-            self.window.title("2D Driving — White Track / Black Walls")
-            self.window.resizable(False, False)
-            self.window.configure(bg=BACKGROUND)
-            self.canvas = tk.Canvas(
-                self.window, width=WIDTH, height=HEIGHT,
-                bg=BACKGROUND, highlightthickness=0, bd=0,
-            )
-            self.canvas.pack(fill="both", expand=True)
-            self.window.protocol("WM_DELETE_WINDOW", self._on_user_close)
-            self._user_closed = False
-            self.render()
-            self.window.lift()
-            return True
-        except Exception as exc:
-            self.close_gui()
+            import pygame
+        except ImportError as exc:
             raise RuntimeError(
-                "Could not open the 2D Driving GUI: {}. "
-                "Try running 'python3 -m tkinter' in Terminal.".format(exc)
+                "Install the display dependency in your Python environment: "
+                "python3 -m pip install pygame"
             ) from exc
+        self._pygame = pygame
+        try:
+            pygame.display.init()
+            pygame.font.init()
+            surface = pygame.display.set_mode((WIDTH, HEIGHT))
+            pygame.display.set_caption("2D Driving - White Track / Black Walls")
+            self.canvas = surface
+            self.window = _WindowHandle(self)
+            self._font = pygame.font.Font(None, 23)
+            self._small_font = pygame.font.Font(None, 19)
+            self._user_closed = False
+            self._last_frame = 0.0
+            self.render()
+            return True
+        except Exception:
+            self.close_gui()
+            raise
 
     def render(self, caption=""):
-        if self.window is None or self.canvas is None:
+        if self.window is None:
             return
-        c = self.canvas
-        c.delete("all")
-        # BLACK outside / WHITE ring / BLACK center. A genuine closed rectangle.
-        c.create_rectangle(0, 0, WIDTH, HEIGHT, fill=BACKGROUND, outline="")
-        c.create_rectangle(*OUTER, fill=ROAD_COLOR, outline=ROAD_COLOR)
-        c.create_rectangle(*INNER, fill=BACKGROUND, outline=BACKGROUND)
+        self._pump_events()
+        if self.window is None:
+            return
+        # Pace a visible simulation even when its caller is a tight training loop.
+        remaining = DT - (time.perf_counter() - self._last_frame)
+        if remaining > 0:
+            time.sleep(remaining)
+        self._last_frame = time.perf_counter()
+        if caption:
+            self._caption = str(caption)
+        pg, screen = self._pygame, self.canvas
+        screen.fill(BACKGROUND)
+        def rect(bounds, color):
+            x0, y0, x1, y1 = bounds
+            pg.draw.rect(screen, color, (int(x0), int(y0), int(x1-x0), int(y1-y0)))
+        rect(OUTER, ROAD_COLOR)
+        rect(INNER, BACKGROUND)
+        def text(message, position, color="#eeeeee", small=False):
+            font = self._small_font if small else self._font
+            screen.blit(font.render(message, True, color), position)
+        for active in self.cars.values():
+            readings = []
+            for offset, color in zip((-45, 0, 45), RAY_COLORS):
+                angle = active.angle + offset
+                distance = _raycast(active.x, active.y, angle)
+                readings.append(distance)
+                rad = math.radians(angle)
+                end = (active.x + math.sin(rad)*distance,
+                       active.y - math.cos(rad)*distance)
+                pg.draw.line(screen, color, (active.x, active.y), end, 2)
+                pg.draw.circle(screen, color, (round(end[0]), round(end[1])), 3)
 
-        # A very subtle guide along the lane center, kept inside the white road.
-        lmid = (OUTER[0] + INNER[0]) / 2
-        rmid = (OUTER[2] + INNER[2]) / 2
-        tmid = (OUTER[1] + INNER[1]) / 2
-        bmid = (OUTER[3] + INNER[3]) / 2
-        c.create_rectangle(lmid, tmid, rmid, bmid, outline="#c8c8c8", width=1, dash=(9, 13))
-
-        for index, car in enumerate(list(self.cars.values())):
-            rad = math.radians(car.angle)
-            fx, fy = math.sin(rad), -math.cos(rad)
-            sx, sy = math.cos(rad), math.sin(rad)
-            points = (
-                car.x + fx * 16, car.y + fy * 16,
-                car.x - fx * 11 + sx * 9, car.y - fy * 11 + sy * 9,
-                car.x - fx * 11 - sx * 9, car.y - fy * 11 - sy * 9,
-            )
-            color = CAR_COLORS[index % len(CAR_COLORS)] if not car.crashed else "#777777"
-            c.create_polygon(points, fill=color, outline="#121212", width=2)
-            # Number labels make it clear all 10 clones are present.
-            name = str(car.car_id)
-            label = name.replace("Clone", "")
-            c.create_text(car.x + 16, car.y + 13, text=label,
-                          fill="#151515", anchor="nw", font=("Arial", 10, "bold"))
-
-        # Draw three sensor rays for the first still-active car (otherwise cluttered).
-        active = next((car for car in self.cars.values() if not car.crashed), None)
-        if active is not None:
-            readings = (
-                _raycast(active.x, active.y, active.angle - 45),
-                _raycast(active.x, active.y, active.angle),
-                _raycast(active.x, active.y, active.angle + 45),
-            )
-            for offset, distance, color in zip((-45, 0, 45), readings, RAY_COLORS):
-                radians = math.radians(active.angle + offset)
-                ex = active.x + math.sin(radians) * distance
-                ey = active.y - math.cos(radians) * distance
-                c.create_line(active.x, active.y, ex, ey, fill=color, width=2, dash=(7, 5))
-                c.create_oval(ex - 3, ey - 3, ex + 3, ey + 3, fill=color, outline="")
-            c.create_text(
-                WIDTH // 2, HEIGHT - 43,
-                text="{}  |  LEFT {:5.0f}px     FRONT {:5.0f}px     RIGHT {:5.0f}px".format(
-                    active.car_id, *readings),
-                fill="#eeeeee", font=("Arial", 13, "bold"), anchor="center",
-            )
-        else:
-            c.create_text(WIDTH // 2, HEIGHT - 43,
-                          text="ALL CARS FINISHED",
-                          fill="#eeeeee", font=("Arial", 13, "bold"))
-
-        total = len(self.cars)
-        alive = sum(not car.crashed for car in self.cars.values())
-        title = caption or "2D DRIVING ENVIRONMENT"
-        c.create_text(27, 40, text=title, fill="#ffffff", anchor="w",
-                      font=("Arial", 19, "bold"))
-        c.create_text(WIDTH - 25, 40, text="CARS: {} / {} ACTIVE".format(alive, total),
-                      fill="#eeeeee", anchor="e", font=("Arial", 13, "bold"))
-        c.create_text(WIDTH // 2, HEIGHT - 17,
-                      text="White = drivable road   |   Black = wall   |   Cars start facing up (0°)",
-                      fill="#aaaaaa", font=("Arial", 10))
-
-        try:
-            self.window.update_idletasks()
-            self.window.update()
-        except tk.TclError:
-            self._on_user_close()
+        for car in self.cars.values():
+            pg.draw.polygon(screen, car.color if not car.crashed else "#777777",
+                            _car_corners(car.x, car.y, car.angle))
+            pg.draw.polygon(screen, "#202020", _car_corners(car.x, car.y, car.angle), 1)
+            # A windshield marks the front, while the body stays rectangular.
+            a = math.radians(car.angle)
+            fx, fy, sx, sy = math.sin(a), -math.cos(a), math.cos(a), math.sin(a)
+            pg.draw.line(screen, "#173247",
+                         (car.x+fx*6-sx*4, car.y+fy*6-sy*4),
+                         (car.x+fx*6+sx*4, car.y+fy*6+sy*4), 3)
+            text(str(car.car_id), (car.x+17, car.y+6), "#777777", True)
+        alive = sum(not c.crashed for c in self.cars.values())
+        text(self._caption or "2D DRIVING ENVIRONMENT", (26, 30))
+        text("CARS: {} / {} ACTIVE".format(alive, len(self.cars)), (790, 30))
+        text("White = road | Black = wall | 0 degrees = up | Esc = close",
+             (290, HEIGHT-24), small=True)
+        pg.display.flip()
 
     def close_gui(self):
-        if self.window is not None:
-            try:
-                self.window.destroy()
-            except tk.TclError:
-                pass
-        self.window = None
-        self.canvas = None
+        if self._pygame is not None:
+            self._pygame.display.quit()
+        self.window = self.canvas = None
+        if globals().get("_env") is self:
+            globals()["window"] = None
+
+
+class _WindowHandle:
+    """Compatibility for older drivers that end with Env.window.mainloop()."""
+    def __init__(self, environment):
+        self.environment = environment
+
+    def mainloop(self):
+        while self.environment.window is self:
+            self.environment.render()
+
+    def destroy(self):
+        self.environment._on_user_close()
 
 
 # Public wrapper functions — keep compatibility with the existing AI file.
@@ -409,28 +454,49 @@ def Get_Rewards(CarID): return _env.get_rewards(CarID)
 def Check_Progress(CarID): return _env.check_progress(CarID)
 def Get_Results(CarID): return _env.get_results(CarID)
 def Reset(): return _env.reset()
-def Start_GUI(): return _env.start_gui()
+def Start_GUI():
+    result = _env.start_gui()
+    globals()["window"] = _env.window
+    return result
 def Render(caption=""): return _env.render(caption)
-def Close_GUI(): return _env.close_gui()
+def Close_GUI():
+    _env.close_gui()
+    globals()["window"] = None
 
-if __name__ == "__main__":
-    import time
-    print("Opening the 2D Driving Environment test window...")
-    for i in range(1, 11):
-        Spawn_Car("Clone{}".format(i))
+window = None
+
+def _demo_control(environment, car):
+    # Preview controller only: never applied to cars driven by an imported AI.
+    left, right, top, bottom = 199.0, 841.0, 166.0, 584.0
+    targets = ((left, top), (right, top), (right, bottom), (left, bottom))
+    index = getattr(car, "demo_target", 0)
+    tx, ty = targets[index]
+    if math.hypot(tx-car.x, ty-car.y) < 36:
+        index = (index+1) % len(targets)
+        car.demo_target = index
+        tx, ty = targets[index]
+    angle = math.degrees(math.atan2(tx-car.x, -(ty-car.y))) % 360
+    environment.send_info(car.car_id, 0.40, angle)
+
+
+def Demo():
+    """Live preview until closed."""
+    for i in range(10):
+        Spawn_Car("Car{}".format(i+1))
+    _env.max_car_time = None
     Start_GUI()
     try:
-        for frame in range(30 * 20):
-            if _env.window is None:
-                break
-            # Simple demonstration: drive upward at moderate speed, then try a turn.
+        while _env.window is not None:
             for car in _env.cars.values():
-                if not car.crashed:
-                    Change_Value(car.car_id, 0.58, 0 if frame < 110 else 90)
+                _demo_control(_env, car)
             Update()
-            Render()
-            time.sleep(DT)
+            Render("LIVE DEMO - ten rectangular cars")
     except KeyboardInterrupt:
         pass
     finally:
         Close_GUI()
+        _env.max_car_time = MAX_CAR_TIME
+
+
+if __name__ == "__main__":
+    Demo()
