@@ -222,14 +222,15 @@ def Drive(Weights, num):
         Speed, Angle = Get_Outputs(Weights, raycast1, raycast2, raycast3, speed, angle)
         Change_Value(CarID, Speed, Angle)
         Car_Info[num] = {
-            "Alive": not Progress["crashed"]
+            "Alive": not Progress["crashed"],
         }
         time.sleep(1/30)
-        
+    Progress = Check_Progress(CarID)
+    Score = 
     
 
-def Start_Race():
-    Create_Clones(Main_weights, 30)
+def Start_Race(Weight, Amount):
+    Create_Clones(Weight, Amount)
     Start_GUI()
 
 
@@ -258,9 +259,12 @@ def Start_Race():
         time.sleep(1 / 30)
 
     Close_GUI()
-        
-                
-                
+
+
+def Train():
+    Start_Race(Main_Weights, 20)
     
+
+
 
 Start_Race()

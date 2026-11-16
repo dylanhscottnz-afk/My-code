@@ -46,10 +46,13 @@ MAX_TURN_RATE = 170.0   # degrees per second
 FPS = 30
 DT = 1.0 / FPS
 
-# Prevent one very slow / stationary clone keeping a generation alive forever.
-MAX_CAR_TIME = 35.0
-STILL_TIME_LIMIT = 7.0
-STILL_DISTANCE = 5.0
+# Only cars that fail to complete their first lap have a time limit.
+FIRST_LAP_DEADLINE = 30.0
+MAX_CAR_TIME = FIRST_LAP_DEADLINE  # compatibility: first-lap deadline only
+SPEED_REWARD_WEIGHT = 5000.0
+LAP_REWARD = 1000.0
+FAST_LAP_REWARD_WEIGHT = 30000.0
+TIMEOUT_PENALTY = 10000.0
 
 CAR_COLORS = (
     "#00b7eb", "#e63946", "#f59e0b", "#8844dd", "#0e9e65",
@@ -221,11 +224,6 @@ class DrivingEnvironment:
                 continue
             car.elapsed += dt
 
-            if self.max_car_time is not None and car.elapsed >= self.max_car_time:
-                car.crashed = True
-                car.timed_out = True
-                continue
-
             desired_change = car.target_speed - car.speed
             max_change = (ACCELERATION if desired_change > 0 else BRAKING) * dt
             car.speed += max(-max_change, min(max_change, desired_change))
@@ -246,15 +244,6 @@ class DrivingEnvironment:
             car.x, car.y = nx, ny
             car.distance += math.hypot(dx, dy)
 
-            # If the car has barely travelled for 7 seconds, end its trial.
-            if car.distance - car.still_distance >= STILL_DISTANCE:
-                car.still_distance = car.distance
-                car.still_since = car.elapsed
-            elif car.elapsed - car.still_since >= STILL_TIME_LIMIT:
-                car.crashed = True
-                car.timed_out = True
-                continue
-
             new_angle = _track_angle(car.x, car.y)
             delta = (new_angle - car.last_track_angle + math.pi) % (2 * math.pi) - math.pi
             # Unwrapped angle avoids jumping at the top/left crossing.
@@ -267,21 +256,43 @@ class DrivingEnvironment:
                 car.lap_started = car.elapsed
                 car.laps = new_laps
 
+            # Evaluate after movement so a lap finished at the deadline counts.
+            if (self.max_car_time is not None and car.laps == 0
+                    and car.elapsed >= self.max_car_time):
+                car.crashed = True  # existing AI loops use this as "trial ended"
+                car.timed_out = True
+
     def get_rewards(self, car_id):
+        """Cumulative fitness; inspect it, do not add it again every frame.
+
+        Speed earns up to 5000 points, scaled by first-lap progress so
+        driving in tiny circles or crashing immediately cannot win on speed.
+        After the first lap, the full speed bonus applies. Each completed lap
+        earns 1000; a smaller fastest-lap time earns a larger extra bonus.
+        Wall collisions stop scoring but deduct nothing. Failure to finish
+        the first lap within 30 seconds deducts 10000 points.
+        """
         car = self.cars[car_id]
+        average_speed = car.distance / car.elapsed if car.elapsed > 0 else 0.0
         progress_reward = max(-100.0, car.progress)
-        crash_penalty = 60.0 if car.crashed and not car.timed_out else 0.0
-        stall_penalty = 35.0 if car.timed_out else 0.0
-        lap_bonus = 0.0
-        if car.best_lap_time is not None:
-            lap_bonus = car.laps * 200.0 + 3000.0 / max(1.0, car.best_lap_time)
-        time_penalty = car.elapsed * 0.3
+        progress_factor = min(1.0, max(0.0, car.progress) / 2080.0)
+        speed_ratio = min(1.0, max(0.0, average_speed / MAX_SPEED))
+        speed_bonus = SPEED_REWARD_WEIGHT * speed_ratio ** 2 * progress_factor
+        lap_bonus = car.laps * LAP_REWARD
+        fastest_lap_bonus = (FAST_LAP_REWARD_WEIGHT / max(1.0, car.best_lap_time)
+                            if car.best_lap_time is not None else 0.0)
+        timeout_penalty = TIMEOUT_PENALTY if car.timed_out else 0.0
+        total = progress_reward + speed_bonus + lap_bonus + fastest_lap_bonus - timeout_penalty
         return {
             "distance_reward": round(progress_reward, 2),
-            "crash_penalty": round(crash_penalty, 2),
+            "average_speed": average_speed,
+            "speed_bonus": round(speed_bonus, 2),
+            "crash_penalty": 0.0,
+            "timeout_penalty": round(timeout_penalty, 2),
             "lap_bonus": round(lap_bonus, 2),
-            "time_penalty": round(time_penalty, 2),
-            "total": round(progress_reward - crash_penalty - stall_penalty + lap_bonus - time_penalty, 2),
+            "fastest_lap_bonus": round(fastest_lap_bonus, 2),
+            "time_penalty": 0.0,
+            "total": round(total, 2),
         }
 
     def check_progress(self, car_id):
@@ -476,7 +487,7 @@ def _demo_control(environment, car):
         car.demo_target = index
         tx, ty = targets[index]
     angle = math.degrees(math.atan2(tx-car.x, -(ty-car.y))) % 360
-    environment.send_info(car.car_id, 0.40, angle)
+    environment.send_info(car.car_id, 0.55, angle)
 
 
 def Demo():
