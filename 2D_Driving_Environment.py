@@ -1,54 +1,50 @@
-"""2D Driving Environment — white rectangular circuit on black background.
+"""2D Driving Environment — five selectable racing circuits.
 
-Drop this file beside your driving AI script and rename it to
-    2D_Driving_Environment.py
+Place this file beside your existing driving AI script.
 
-Public API intentionally matches the original environment:
-Spawn_Car, Get_Info, Change_Value, Check_Progress, Get_Rewards,
-Update, Reset, Start_GUI, Render and Close_GUI.
+    Set_Map(1)   # easiest
+    Set_Map(5)   # hardest
+
+Set_Map resets the current race (removes cars) and changes the track; use it
+between races or before calling Start_Race. Reset() removes cars but keeps the
+selected map. No changes to the original API or reward dictionary are required.
 
 Angles: 0 = UP, 90 = RIGHT, 180 = DOWN, 270 = LEFT.
-Raycasts report the distance in pixels to the nearest black wall.
-Display dependency: python3 -m pip install pygame
-Run this file directly for a looping ten-car demonstration.
-Import it from your AI to display the cars controlled by that AI.
+Raycasts: distance in pixels to the nearest wall.
+Install graphical dependency with: python3 -m pip install pygame
+Preview: python 2D_Driving_Environment.py [map_number]
 """
 
 import math
-import threading
 import random
+import sys
+import threading
 import time
 from dataclasses import dataclass
 from typing import Optional, Union
 
+
 # ---------------------------------------------------------------------------
-# World / road settings
+# World / driving settings (compatible with the original environment)
 # ---------------------------------------------------------------------------
 WIDTH, HEIGHT = 1040, 760
 BACKGROUND = "#000000"
 ROAD_COLOR = "#ffffff"
 
-# Two rectangles make an easy, wide, closed square-like road.
-# White between OUTER and INNER; everywhere else is black.
-OUTER = (128.0, 100.0, 912.0, 650.0)
-INNER = (270.0, 232.0, 770.0, 518.0)
-CENTER_X = (OUTER[0] + OUTER[2]) / 2
-CENTER_Y = (OUTER[1] + OUTER[3]) / 2
-
 CAR_LENGTH = 26.0
 CAR_WIDTH = 14.0
 CAR_RADIUS = math.hypot(CAR_LENGTH / 2, CAR_WIDTH / 2)
 MAX_RAY_DISTANCE = 1400.0
-MAX_SPEED = 165.0        # pixels per second
-ACCELERATION = 165.0    # pixels per second squared
-BRAKING = 245.0         # pixels per second squared
-MAX_TURN_RATE = 170.0   # degrees per second
+MAX_SPEED = 165.0
+ACCELERATION = 165.0
+BRAKING = 245.0
+MAX_TURN_RATE = 170.0
 FPS = 30
 DT = 1.0 / FPS
 
-# Only cars that fail to complete their first lap have a time limit.
+# These rewards are intentionally the same as in your previous environment.
 FIRST_LAP_DEADLINE = 30.0
-MAX_CAR_TIME = FIRST_LAP_DEADLINE  # compatibility: first-lap deadline only
+MAX_CAR_TIME = FIRST_LAP_DEADLINE
 SPEED_REWARD_WEIGHT = 5000.0
 LAP_REWARD = 1000.0
 FAST_LAP_REWARD_WEIGHT = 30000.0
@@ -60,6 +56,66 @@ CAR_COLORS = (
 )
 RAY_COLORS = ("#ff5151", "#00a35b", "#2388ff")
 
+# Each track is a CLOSED clockwise centerline, with a road of the given width.
+# Wider roads / fewer corners are easier; narrower winding roads are harder.
+# Coordinates are screen pixels. No external geometry package is needed.
+MAPS = {
+    1: {
+        "name": "Training Loop",
+        "description": "Wide road, four easy corners",
+        "width": 132.0,
+        "points": (
+            (199, 584), (199, 166), (841, 166), (841, 584),
+        ),
+    },
+    2: {
+        "name": "Rounded Circuit",
+        "description": "Gentle diagonal corners, slightly narrower road",
+        "width": 112.0,
+        "points": (
+            (216, 577), (170, 490), (170, 285), (235, 164),
+            (792, 164), (860, 282), (860, 465), (792, 577),
+        ),
+    },
+    3: {
+        "name": "Zigzag Circuit",
+        "description": "Alternating bends and tighter corners",
+        "width": 94.0,
+        "points": (
+            (210, 575), (193, 465), (252, 390), (187, 307),
+            (210, 189), (359, 168), (456, 229), (556, 169),
+            (812, 183), (844, 300), (784, 386), (844, 473),
+            (803, 568), (632, 572), (543, 518), (453, 577),
+        ),
+    },
+    4: {
+        "name": "Technical Hairpins",
+        "description": "Sharp direction changes and a narrow road",
+        "width": 84.0,
+        "points": (
+            (199, 592), (200, 468), (313, 399), (198, 329),
+            (203, 219), (323, 163), (460, 225), (558, 154),
+            (715, 161), (834, 235), (768, 327), (842, 411),
+            (775, 497), (831, 590), (677, 572), (590, 486),
+            (471, 563), (340, 503),
+        ),
+    },
+    5: {
+        "name": "Serpentine Gauntlet",
+        "description": "Very narrow track and frequent difficult turns",
+        "width": 66.0,
+        "points": (
+            (203, 590), (175, 517), (245, 462), (173, 392),
+            (247, 310), (178, 247), (231, 157), (342, 160),
+            (407, 246), (488, 168), (568, 245), (634, 153),
+            (743, 158), (850, 234), (780, 308), (855, 380),
+            (777, 443), (847, 519), (798, 595), (698, 589),
+            (628, 503), (559, 586), (483, 510), (409, 590),
+            (337, 516),
+        ),
+    },
+}
+
 
 def _normalize(angle):
     return float(angle) % 360.0
@@ -69,74 +125,187 @@ def _angular_difference(target, current):
     return (target - current + 180.0) % 360.0 - 180.0
 
 
-def _point_in_rect(x, y, rect):
-    return rect[0] <= x <= rect[2] and rect[1] <= y <= rect[3]
+def _cross(ax, ay, bx, by):
+    return ax * by - ay * bx
 
 
-def _road_contains(x, y, clearance=0.0):
-    """White road: within the outer rectangle but outside the inner black wall."""
-    ox0, oy0, ox1, oy1 = OUTER
-    ix0, iy0, ix1, iy1 = INNER
-    in_outer = (ox0 + clearance <= x <= ox1 - clearance and
-                oy0 + clearance <= y <= oy1 - clearance)
-    in_inner = (ix0 - clearance <= x <= ix1 + clearance and
-                iy0 - clearance <= y <= iy1 + clearance)
-    return in_outer and not in_inner
+def _offset_polygon(points, offset):
+    """Miter-offset a non-self-intersecting closed centerline polygon."""
+    output = []
+    count = len(points)
+    for i, (x, y) in enumerate(points):
+        previous = points[i - 1]
+        following = points[(i + 1) % count]
+        ax, ay = x - previous[0], y - previous[1]
+        bx, by = following[0] - x, following[1] - y
+        la, lb = math.hypot(ax, ay), math.hypot(bx, by)
+        ax, ay, bx, by = ax / la, ay / la, bx / lb, by / lb
+        # A right-hand normal points inside these clockwise screen-space loops.
+        n1x, n1y = -ay, ax
+        n2x, n2y = -by, bx
+        mx, my = n1x + n2x, n1y + n2y
+        divisor = mx * n2x + my * n2y
+        if abs(divisor) < 1e-8:
+            raise ValueError("Track has an excessively sharp reversal")
+        output.append((x + offset * mx / divisor,
+                       y + offset * my / divisor))
+    return tuple(output)
 
 
-def _raycast(x, y, angle):
-    """Ray distance to first black wall, using exact rectangle intersections."""
-    rad = math.radians(angle)
-    dx, dy = math.sin(rad), -math.cos(rad)
-    nearest = MAX_RAY_DISTANCE
-
-    for x0, y0, x1, y1 in (OUTER, INNER):
-        if abs(dx) > 1e-12:
-            for edge_x in (x0, x1):
-                t = (edge_x - x) / dx
-                if 1e-7 < t < nearest and y0 - 1e-6 <= y + t * dy <= y1 + 1e-6:
-                    nearest = t
-        if abs(dy) > 1e-12:
-            for edge_y in (y0, y1):
-                t = (edge_y - y) / dy
-                if 1e-7 < t < nearest and x0 - 1e-6 <= x + t * dx <= x1 + 1e-6:
-                    nearest = t
-
-    return nearest
+def _edges(points):
+    return tuple((x, y, points[(i + 1) % len(points)][0] - x,
+                  points[(i + 1) % len(points)][1] - y)
+                 for i, (x, y) in enumerate(points))
 
 
-def _track_angle(x, y):
-    """Continuous clockwise progress around the rectangular loop."""
-    # Angle is normalized for the rectangle's unequal dimensions.
-    # Radii of the centerline's approximate ellipse (used only for reward progress).
-    rx = CENTER_X - (INNER[0] + OUTER[0]) / 2
-    ry = CENTER_Y - (INNER[1] + OUTER[1]) / 2
-    return math.atan2((y - CENTER_Y) / ry, (x - CENTER_X) / rx)
+def _point_in_polygon(x, y, points):
+    """Even/odd containment; exact on-wall positions are treated as collisions."""
+    inside = False
+    j = len(points) - 1
+    for i in range(len(points)):
+        x1, y1 = points[j]
+        x2, y2 = points[i]
+        if (y1 > y) != (y2 > y):
+            at_x = x1 + (y - y1) * (x2 - x1) / (y2 - y1)
+            if x < at_x:
+                inside = not inside
+        j = i
+    return inside
+
+
+def _segments_intersect(ax, ay, bx, by, cx, cy, dx, dy):
+    """Proper and touching segment intersections; endpoints count as walls."""
+    abx, aby = bx - ax, by - ay
+    cdx, cdy = dx - cx, dy - cy
+    denom = _cross(abx, aby, cdx, cdy)
+    qx, qy = cx - ax, cy - ay
+    if abs(denom) < 1e-10:
+        if abs(_cross(qx, qy, abx, aby)) > 1e-8:
+            return False
+        # Collinear segments: test bounding boxes for overlap.
+        return (max(min(ax, bx), min(cx, dx)) <= min(max(ax, bx), max(cx, dx))
+                and max(min(ay, by), min(cy, dy)) <= min(max(ay, by), max(cy, dy)))
+    t = _cross(qx, qy, cdx, cdy) / denom
+    u = _cross(qx, qy, abx, aby) / denom
+    return -1e-9 <= t <= 1 + 1e-9 and -1e-9 <= u <= 1 + 1e-9
 
 
 def _car_corners(x, y, angle):
     a = math.radians(angle)
     fx, fy = math.sin(a), -math.cos(a)
     sx, sy = math.cos(a), math.sin(a)
-    return [(x+fx*f+sx*s, y+fy*f+sy*s)
-            for f, s in ((13, 7), (13, -7), (-13, -7), (-13, 7))]
+    return tuple((x + fx * f + sx * s, y + fy * f + sy * s)
+                 for f, s in ((13, 7), (13, -7), (-13, -7), (-13, 7)))
 
 
-def _car_on_road(x, y, angle):
-    # Edges cannot cross the central wall: test polygon/rectangle separation.
-    corners = _car_corners(x, y, angle)
-    if not all(_point_in_rect(px, py, OUTER) for px, py in corners):
-        return False
-    ix0, iy0, ix1, iy1 = INNER
-    wall = ((ix0, iy0), (ix1, iy0), (ix1, iy1), (ix0, iy1))
-    a = math.radians(angle)
-    for ax, ay in ((1, 0), (0, 1), (math.sin(a), -math.cos(a)),
-                   (math.cos(a), math.sin(a))):
-        car_proj = [px*ax+py*ay for px, py in corners]
-        wall_proj = [px*ax+py*ay for px, py in wall]
-        if max(car_proj) < min(wall_proj) or max(wall_proj) < min(car_proj):
+class Track:
+    def __init__(self, map_number):
+        config = MAPS[map_number]
+        self.number = map_number
+        self.name = config["name"]
+        self.description = config["description"]
+        self.road_width = config["width"]
+        self.center = tuple(config["points"])
+        self.outer = _offset_polygon(self.center, -self.road_width / 2)
+        self.inner = _offset_polygon(self.center, self.road_width / 2)
+        self.boundary_edges = _edges(self.outer) + _edges(self.inner)
+        # Cache wall bounding boxes expanded by one car radius. Most cars are
+        # far enough from the walls to skip polygon/corner collision checks.
+        self.nearby_walls = tuple(
+            (px, py, dx, dy,
+             min(px, px + dx) - CAR_RADIUS, min(py, py + dy) - CAR_RADIUS,
+             max(px, px + dx) + CAR_RADIUS, max(py, py + dy) + CAR_RADIUS)
+            for px, py, dx, dy in self.boundary_edges
+        )
+        self.path_edges = _edges(self.center)
+        self.path_lengths = tuple(math.hypot(dx, dy)
+                                  for _, _, dx, dy in self.path_edges)
+        self.path_starts = []
+        length = 0.0
+        for segment_length in self.path_lengths:
+            self.path_starts.append(length)
+            length += segment_length
+        self.length = length
+        self.bounds = (
+            min(x for x, _ in self.outer), min(y for _, y in self.outer),
+            max(x for x, _ in self.outer), max(y for _, y in self.outer),
+        )
+
+    def contains(self, x, y):
+        x0, y0, x1, y1 = self.bounds
+        return (x0 < x < x1 and y0 < y < y1
+                and _point_in_polygon(x, y, self.outer)
+                and not _point_in_polygon(x, y, self.inner))
+
+    def car_on_road(self, x, y, angle):
+        if not self.contains(x, y):
+            return False
+        nearby = [(px, py, dx, dy)
+                  for px, py, dx, dy, x0, y0, x1, y1 in self.nearby_walls
+                  if x0 <= x <= x1 and y0 <= y <= y1]
+        if not nearby:
+            # If no boundary is within a whole-car radius, the full car fits.
             return True
-    return False
+        corners = _car_corners(x, y, angle)
+        if not all(self.contains(px, py) for px, py in corners):
+            return False
+        # Corners alone are not sufficient for concave walls: check car edges.
+        for i in range(4):
+            ax, ay = corners[i]
+            bx, by = corners[(i + 1) % 4]
+            for cx, cy, dx, dy in nearby:
+                if _segments_intersect(ax, ay, bx, by,
+                                       cx, cy, cx + dx, cy + dy):
+                    return False
+        return True
+
+    def raycast(self, x, y, angle):
+        radians = math.radians(angle)
+        rx, ry = math.sin(radians), -math.cos(radians)
+        nearest = MAX_RAY_DISTANCE
+        for px, py, dx, dy in self.boundary_edges:
+            denominator = _cross(rx, ry, dx, dy)
+            if abs(denominator) < 1e-10:
+                continue
+            qx, qy = px - x, py - y
+            distance = _cross(qx, qy, dx, dy) / denominator
+            along = _cross(qx, qy, rx, ry) / denominator
+            if 1e-7 < distance < nearest and 0 <= along <= 1:
+                nearest = distance
+        return nearest
+
+    def position_along_track(self, x, y):
+        """Return nearest arc-distance along the centerline, modulo one lap."""
+        best_distance_sq = float("inf")
+        best_s = 0.0
+        for i, (sx, sy, dx, dy) in enumerate(self.path_edges):
+            segment_length_sq = dx * dx + dy * dy
+            t = max(0.0, min(1.0,
+                             ((x - sx) * dx + (y - sy) * dy) / segment_length_sq))
+            delta_x = x - (sx + t * dx)
+            delta_y = y - (sy + t * dy)
+            distance_sq = delta_x * delta_x + delta_y * delta_y
+            if distance_sq < best_distance_sq:
+                best_distance_sq = distance_sq
+                best_s = self.path_starts[i] + t * self.path_lengths[i]
+        return best_s % self.length
+
+    def point_at(self, distance):
+        s = distance % self.length
+        for i, segment_length in enumerate(self.path_lengths):
+            if s <= self.path_starts[i] + segment_length:
+                t = (s - self.path_starts[i]) / segment_length
+                x, y, dx, dy = self.path_edges[i]
+                return x + dx * t, y + dy * t
+        return self.center[0]
+
+    def starting_position(self, index):
+        # Place cars safely on the first straight, without cars hitting each other.
+        s = min(34.0 + (index % 4) * 7.0, self.path_lengths[0] * 0.48)
+        x, y = self.point_at(s)
+        _, _, dx, dy = self.path_edges[0]
+        angle = _normalize(math.degrees(math.atan2(dx, -dy)))
+        return x, y, angle
 
 
 @dataclass
@@ -154,7 +323,7 @@ class Car:
     laps: int = 0
     crashed: bool = False
     timed_out: bool = False
-    last_track_angle: float = math.pi
+    last_track_position: float = 0.0
     lap_started: float = 0.0
     best_lap_time: Optional[float] = None
     still_since: float = 0.0
@@ -166,6 +335,7 @@ class DrivingEnvironment:
     def __init__(self):
         self.cars = {}
         self._next_id = 1
+        self.track = Track(1)
         self.max_car_time = MAX_CAR_TIME
         self.window = None
         self.canvas = None
@@ -175,6 +345,18 @@ class DrivingEnvironment:
         self._caption = ""
         self._colors = random.SystemRandom()
 
+    def set_map(self, map_number):
+        """Change level 1..5. Existing cars are reset for a fresh race."""
+        if isinstance(map_number, bool) or not isinstance(map_number, int) or map_number not in MAPS:
+            raise ValueError("Map_Number must be an integer from 1 to 5")
+        self.track = Track(map_number)
+        self.reset()
+        self._caption = ""
+        if self.window is not None:
+            self._pygame.display.set_caption(
+                "2D Driving - Level {}: {}".format(map_number, self.track.name))
+        return map_number
+
     def create_car(self, name=None):
         if name is None:
             while self._next_id in self.cars:
@@ -183,23 +365,21 @@ class DrivingEnvironment:
             self._next_id += 1
         if name in self.cars:
             raise ValueError("Car already exists: {!r}".format(name))
-
-        # Place up to 10 cars separately along the left straight, all at 0°.
-        index = len(self.cars)
-        lane_x = (OUTER[0] + INNER[0]) / 2
-        start_y = 550.0 - (index % 10) * 28.0
-        car = Car(name, lane_x, start_y)
+        x, y, angle = self.track.starting_position(len(self.cars))
+        car = Car(name, x, y, angle=angle, target_angle=angle)
         car.color = self._colors.choice(CAR_COLORS)
-        car.last_track_angle = _track_angle(car.x, car.y)
+        car.last_track_position = self.track.position_along_track(x, y)
+        if not self.track.car_on_road(x, y, angle):
+            raise RuntimeError("The selected map has an invalid starting position")
         self.cars[name] = car
         return name
 
     def get_info(self, car_id):
         car = self.cars[car_id]
         return {
-            "raycast1": _raycast(car.x, car.y, car.angle - 45),
-            "raycast2": _raycast(car.x, car.y, car.angle),
-            "raycast3": _raycast(car.x, car.y, car.angle + 45),
+            "raycast1": self.track.raycast(car.x, car.y, car.angle - 45),
+            "raycast2": self.track.raycast(car.x, car.y, car.angle),
+            "raycast3": self.track.raycast(car.x, car.y, car.angle + 45),
             "speed": car.speed / MAX_SPEED,
             "angle": _normalize(car.angle),
             "crashed": car.crashed,
@@ -233,10 +413,10 @@ class DrivingEnvironment:
             error = _angular_difference(car.target_angle, car.angle)
             car.angle = _normalize(car.angle + max(-turn_limit, min(turn_limit, error)))
 
-            rad = math.radians(car.angle)
-            nx = car.x + math.sin(rad) * car.speed * dt
-            ny = car.y - math.cos(rad) * car.speed * dt
-            if not _car_on_road(nx, ny, car.angle):
+            radians = math.radians(car.angle)
+            nx = car.x + math.sin(radians) * car.speed * dt
+            ny = car.y - math.cos(radians) * car.speed * dt
+            if not self.track.car_on_road(nx, ny, car.angle):
                 car.crashed = True
                 continue
 
@@ -244,45 +424,46 @@ class DrivingEnvironment:
             car.x, car.y = nx, ny
             car.distance += math.hypot(dx, dy)
 
-            new_angle = _track_angle(car.x, car.y)
-            delta = (new_angle - car.last_track_angle + math.pi) % (2 * math.pi) - math.pi
-            # Unwrapped angle avoids jumping at the top/left crossing.
-            car.progress += delta / (2 * math.pi) * 2080.0
-            car.last_track_angle = new_angle
-            new_laps = max(0, int(car.progress / 2080.0))
+            new_position = self.track.position_along_track(car.x, car.y)
+            perimeter = self.track.length
+            # Unwrap distance so moving BACKWARDS produces negative progress.
+            # One lap is the current map's actual perimeter, not a fixed 2080.
+            step = (new_position - car.last_track_position + perimeter / 2) % perimeter - perimeter / 2
+            car.progress += step
+            car.last_track_position = new_position
+            new_laps = max(0, int((car.progress + 1e-7) // perimeter))
             if new_laps > car.laps:
                 lap_time = car.elapsed - car.lap_started
-                car.best_lap_time = lap_time if car.best_lap_time is None else min(car.best_lap_time, lap_time)
+                car.best_lap_time = (lap_time if car.best_lap_time is None
+                                     else min(car.best_lap_time, lap_time))
                 car.lap_started = car.elapsed
                 car.laps = new_laps
 
-            # Evaluate after movement so a lap finished at the deadline counts.
+            # As in the original: only the first lap has a deadline.
             if (self.max_car_time is not None and car.laps == 0
                     and car.elapsed >= self.max_car_time):
-                car.crashed = True  # existing AI loops use this as "trial ended"
+                car.crashed = True
                 car.timed_out = True
 
     def get_rewards(self, car_id):
-        """Cumulative fitness; inspect it, do not add it again every frame.
+        """Cumulative fitness; do not add this value again every frame.
 
-        Speed earns up to 5000 points, scaled by first-lap progress so
-        driving in tiny circles or crashing immediately cannot win on speed.
-        After the first lap, the full speed bonus applies. Each completed lap
-        earns 1000; a smaller fastest-lap time earns a larger extra bonus.
-        Wall collisions stop scoring but deduct nothing. Failure to finish
-        the first lap within 30 seconds deducts 10000 points.
+        Preserves the original scoring formula. Speed rewards depend on
+        average speed AND forward progress; driving backwards loses progress.
+        Collision = no direct penalty; missing the first-lap deadline = -10000.
         """
         car = self.cars[car_id]
         average_speed = car.distance / car.elapsed if car.elapsed > 0 else 0.0
         progress_reward = max(-100.0, car.progress)
-        progress_factor = min(1.0, max(0.0, car.progress) / 2080.0)
+        progress_factor = min(1.0, max(0.0, car.progress) / self.track.length)
         speed_ratio = min(1.0, max(0.0, average_speed / MAX_SPEED))
         speed_bonus = SPEED_REWARD_WEIGHT * speed_ratio ** 2 * progress_factor
         lap_bonus = car.laps * LAP_REWARD
         fastest_lap_bonus = (FAST_LAP_REWARD_WEIGHT / max(1.0, car.best_lap_time)
                             if car.best_lap_time is not None else 0.0)
         timeout_penalty = TIMEOUT_PENALTY if car.timed_out else 0.0
-        total = progress_reward + speed_bonus + lap_bonus + fastest_lap_bonus - timeout_penalty
+        total = (progress_reward * 3 + speed_bonus * 3 + car.laps * 5000
+                 + fastest_lap_bonus * 3 - timeout_penalty)
         return {
             "distance_reward": round(progress_reward, 2),
             "average_speed": average_speed,
@@ -296,7 +477,6 @@ class DrivingEnvironment:
         }
 
     def check_progress(self, car_id):
-        """Average speed is distance / elapsed simulation time, in pixels/second."""
         car = self.cars[car_id]
         return {
             "crashed": car.crashed,
@@ -331,7 +511,6 @@ class DrivingEnvironment:
 
     def _on_user_close(self):
         self._user_closed = True
-        # Tell the AI race loop its session is over so it doesn't run invisibly.
         for car in self.cars.values():
             car.crashed = True
         self.close_gui()
@@ -343,8 +522,7 @@ class DrivingEnvironment:
             raise RuntimeError("GUI calls must run on the main Python thread.")
         for event in self._pygame.event.get():
             if event.type == self._pygame.QUIT or (
-                event.type == self._pygame.KEYDOWN and event.key == self._pygame.K_ESCAPE
-            ):
+                    event.type == self._pygame.KEYDOWN and event.key == self._pygame.K_ESCAPE):
                 self._on_user_close()
                 break
 
@@ -357,16 +535,15 @@ class DrivingEnvironment:
             import pygame
         except ImportError as exc:
             raise RuntimeError(
-                "Install the display dependency in your Python environment: "
-                "python3 -m pip install pygame"
+                "Install the display dependency: python3 -m pip install pygame"
             ) from exc
         self._pygame = pygame
         try:
             pygame.display.init()
             pygame.font.init()
-            surface = pygame.display.set_mode((WIDTH, HEIGHT))
-            pygame.display.set_caption("2D Driving - White Track / Black Walls")
-            self.canvas = surface
+            self.canvas = pygame.display.set_mode((WIDTH, HEIGHT))
+            pygame.display.set_caption(
+                "2D Driving - Level {}: {}".format(self.track.number, self.track.name))
             self.window = _WindowHandle(self)
             self._font = pygame.font.Font(None, 23)
             self._small_font = pygame.font.Font(None, 19)
@@ -384,7 +561,6 @@ class DrivingEnvironment:
         self._pump_events()
         if self.window is None:
             return
-        # Pace a visible simulation even when its caller is a tight training loop.
         remaining = DT - (time.perf_counter() - self._last_frame)
         if remaining > 0:
             time.sleep(remaining)
@@ -393,42 +569,50 @@ class DrivingEnvironment:
             self._caption = str(caption)
         pg, screen = self._pygame, self.canvas
         screen.fill(BACKGROUND)
-        def rect(bounds, color):
-            x0, y0, x1, y1 = bounds
-            pg.draw.rect(screen, color, (int(x0), int(y0), int(x1-x0), int(y1-y0)))
-        rect(OUTER, ROAD_COLOR)
-        rect(INNER, BACKGROUND)
-        def text(message, position, color="#eeeeee", small=False):
-            font = self._small_font if small else self._font
-            screen.blit(font.render(message, True, color), position)
-        for active in self.cars.values():
-            readings = []
-            for offset, color in zip((-45, 0, 45), RAY_COLORS):
-                angle = active.angle + offset
-                distance = _raycast(active.x, active.y, angle)
-                readings.append(distance)
-                rad = math.radians(angle)
-                end = (active.x + math.sin(rad)*distance,
-                       active.y - math.cos(rad)*distance)
-                pg.draw.line(screen, color, (active.x, active.y), end, 2)
-                pg.draw.circle(screen, color, (round(end[0]), round(end[1])), 3)
 
-        for car in self.cars.values():
-            pg.draw.polygon(screen, car.color if not car.crashed else "#777777",
-                            _car_corners(car.x, car.y, car.angle))
-            pg.draw.polygon(screen, "#202020", _car_corners(car.x, car.y, car.angle), 1)
-            # A windshield marks the front, while the body stays rectangular.
+        # Draw concave/convex circuits from the actual collision polygons.
+        pg.draw.polygon(screen, ROAD_COLOR, self.track.outer)
+        pg.draw.polygon(screen, BACKGROUND, self.track.inner)
+
+        def draw_text(message, position, color="#eeeeee", small=False):
+            font = self._small_font if small else self._font
+            screen.blit(font.render(str(message), True, color), position)
+
+        # Showing 1500 rays for 500 clones would hide the whole map.
+        cars = list(self.cars.values())
+        ray_cars = cars if len(cars) <= 10 else cars[:10]
+        for car in ray_cars:
+            if car.crashed:
+                continue
+            for offset, color in zip((-45, 0, 45), RAY_COLORS):
+                ray_angle = car.angle + offset
+                distance = self.track.raycast(car.x, car.y, ray_angle)
+                a = math.radians(ray_angle)
+                endpoint = (car.x + math.sin(a) * distance,
+                            car.y - math.cos(a) * distance)
+                pg.draw.line(screen, color, (car.x, car.y), endpoint, 2)
+                pg.draw.circle(screen, color,
+                               (round(endpoint[0]), round(endpoint[1])), 3)
+
+        for car in cars:
+            corners = _car_corners(car.x, car.y, car.angle)
+            pg.draw.polygon(screen, car.color if not car.crashed else "#777777", corners)
+            pg.draw.polygon(screen, "#202020", corners, 1)
             a = math.radians(car.angle)
             fx, fy, sx, sy = math.sin(a), -math.cos(a), math.cos(a), math.sin(a)
             pg.draw.line(screen, "#173247",
-                         (car.x+fx*6-sx*4, car.y+fy*6-sy*4),
-                         (car.x+fx*6+sx*4, car.y+fy*6+sy*4), 3)
-            text(str(car.car_id), (car.x+17, car.y+6), "#777777", True)
-        alive = sum(not c.crashed for c in self.cars.values())
-        text(self._caption or "2D DRIVING ENVIRONMENT", (26, 30))
-        text("CARS: {} / {} ACTIVE".format(alive, len(self.cars)), (790, 30))
-        text("White = road | Black = wall | 0 degrees = up | Esc = close",
-             (290, HEIGHT-24), small=True)
+                         (car.x + fx * 6 - sx * 4, car.y + fy * 6 - sy * 4),
+                         (car.x + fx * 6 + sx * 4, car.y + fy * 6 + sy * 4), 3)
+            if len(cars) <= 35:
+                draw_text(car.car_id, (car.x + 17, car.y + 6), "#777777", True)
+
+        alive = sum(not c.crashed for c in cars)
+        draw_text(self._caption or "2D DRIVING ENVIRONMENT", (26, 24))
+        draw_text("LEVEL {} / 5 - {}".format(self.track.number, self.track.name),
+                  (26, 48), "#ffcc66")
+        draw_text("CARS: {} / {} ACTIVE".format(alive, len(cars)), (790, 28))
+        draw_text("White = road | Black = wall | 0 degrees = up | Esc = close",
+                  (290, HEIGHT - 24), small=True)
         pg.display.flip()
 
     def close_gui(self):
@@ -440,7 +624,7 @@ class DrivingEnvironment:
 
 
 class _WindowHandle:
-    """Compatibility for older drivers that end with Env.window.mainloop()."""
+    """Compatibility with older scripts using Env.window.mainloop()."""
     def __init__(self, environment):
         self.environment = environment
 
@@ -452,9 +636,12 @@ class _WindowHandle:
         self.environment._on_user_close()
 
 
-# Public wrapper functions — keep compatibility with the existing AI file.
+# ---------------------------------------------------------------------------
+# Public wrapper API — compatible with the user's existing AI program.
+# ---------------------------------------------------------------------------
 _env = DrivingEnvironment()
 
+def Set_Map(Map_Number): return _env.set_map(Map_Number)
 def Create_Car(Name=None): return _env.create_car(Name)
 def Spawn_Car(Name=None): return _env.create_car(Name)
 def Get_Info(CarID): return _env.get_info(CarID)
@@ -465,43 +652,44 @@ def Get_Rewards(CarID): return _env.get_rewards(CarID)
 def Check_Progress(CarID): return _env.check_progress(CarID)
 def Get_Results(CarID): return _env.get_results(CarID)
 def Reset(): return _env.reset()
+
 def Start_GUI():
     result = _env.start_gui()
     globals()["window"] = _env.window
     return result
+
 def Render(caption=""): return _env.render(caption)
+
 def Close_GUI():
     _env.close_gui()
     globals()["window"] = None
 
 window = None
 
+
 def _demo_control(environment, car):
-    # Preview controller only: never applied to cars driven by an imported AI.
-    left, right, top, bottom = 199.0, 841.0, 166.0, 584.0
-    targets = ((left, top), (right, top), (right, bottom), (left, bottom))
-    index = getattr(car, "demo_target", 0)
-    tx, ty = targets[index]
-    if math.hypot(tx-car.x, ty-car.y) < 36:
-        index = (index+1) % len(targets)
-        car.demo_target = index
-        tx, ty = targets[index]
-    angle = math.degrees(math.atan2(tx-car.x, -(ty-car.y))) % 360
-    environment.send_info(car.car_id, 0.55, angle)
+    """Slow preview autopilot, only used when the environment file runs alone."""
+    track = environment.track
+    current_s = track.position_along_track(car.x, car.y)
+    tx, ty = track.point_at(current_s + 33.0)
+    desired_angle = math.degrees(math.atan2(tx - car.x, -(ty - car.y))) % 360
+    environment.send_info(car.car_id, 0.19, desired_angle)
 
 
-def Demo():
-    """Live preview until closed."""
+def Demo(map_number=1):
+    """Visual preview of the specified map. Press Esc to close."""
+    Set_Map(map_number)
     for i in range(10):
-        Spawn_Car("Car{}".format(i+1))
+        Spawn_Car("Car{}".format(i + 1))
     _env.max_car_time = None
     Start_GUI()
     try:
         while _env.window is not None:
-            for car in _env.cars.values():
-                _demo_control(_env, car)
+            for car in list(_env.cars.values()):
+                if not car.crashed:
+                    _demo_control(_env, car)
             Update()
-            Render("LIVE DEMO - ten rectangular cars")
+            Render("LIVE PREVIEW - {}".format(_env.track.name))
     except KeyboardInterrupt:
         pass
     finally:
@@ -510,4 +698,4 @@ def Demo():
 
 
 if __name__ == "__main__":
-    Demo()
+    Demo(int(sys.argv[1]) if len(sys.argv) > 1 else 1)
