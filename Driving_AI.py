@@ -73,7 +73,7 @@ def Set_Map(Map_Number):
 
 epochs = 10
 lr = 0.05
-Clone_Per_Run = 500
+Clone_Per_Run = 50
 
 Raycast1 = 2
 Raycast2 = 3
@@ -258,7 +258,7 @@ def Train(Repeats):
         if Map > 5:
             Map -= 5
         Set_Map(5)
-        weights = Start_Race(Main_Weights, Clone_Per_Run, 600)
+        weights = Start_Race(Main_Weights, Clone_Per_Run, 900)
         Main_Weights = weights
 
         Reset()
@@ -269,7 +269,7 @@ def Train(Repeats):
 def Test_Model():
     Start_GUI()
     Set_Map(5)
-    Start_Race(Main_Weights, 1, 1500)
+    Start_Race(Main_Weights, 1, 600)
     Close_GUI()
 
-Test_Model()
+Train(5)
