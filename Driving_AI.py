@@ -83,6 +83,7 @@ Angle = 0
 
 N = {}
 Answers = {}
+Answers2 = {}
 Training_Clones = {}
 Car_Info = {}
 
@@ -127,8 +128,103 @@ Angle_w4 = random.uniform(-1, 1)
 Angle_w5 = random.uniform(-1, 1)
 Angle_bias = random.uniform(-1, 1)
 
-if False:
-    Main_Weights = { "Speed_w1": Speed_w1, "Speed_w2": Speed_w2, "Speed_w3": Speed_w3, "Speed_w4": Speed_w4, "Speed_w5": Speed_w5, "Speed_bias": Speed_bias, "Angle_w1": Angle_w1, "Angle_w2": Angle_w2, "Angle_w3": Angle_w3, "Angle_w4": Angle_w4, "Angle_w5": Angle_w5, "Angle_bias": Angle_bias, 1: { "w1": N[1]["w1"], "w2": N[1]["w2"], "w3": N[1]["w3"], "w4": N[1]["w4"], "w5": N[1]["w5"], "bias": N[1]["bias"] }, 2: { "w1": N[2]["w1"], "w2": N[2]["w2"], "w3": N[2]["w3"], "w4": N[2]["w4"], "w5": N[2]["w5"], "bias": N[2]["bias"] }, 3: { "w1": N[3]["w1"], "w2": N[3]["w2"], "w3": N[3]["w3"], "w4": N[3]["w4"], "w5": N[3]["w5"], "bias": N[3]["bias"] }, 4: { "w1": N[4]["w1"], "w2": N[4]["w2"], "w3": N[4]["w3"], "w4": N[4]["w4"], "w5": N[4]["w5"], "bias": N[4]["bias"] }, 5: { "w1": N[5]["w1"], "w2": N[5]["w2"], "w3": N[5]["w3"], "w4": N[5]["w4"], "w5": N[5]["w5"], "bias": N[5]["bias"] } }
+if True:
+    Main_Weights = {
+        "Speed_w1": random.uniform(-1, 1),
+        "Speed_w2": random.uniform(-1, 1),
+        "Speed_w3": random.uniform(-1, 1),
+        "Speed_w4": random.uniform(-1, 1),
+        "Speed_w5": random.uniform(-1, 1),
+        "Speed_bias": random.uniform(-1, 1),
+        "Angle_w1": random.uniform(-1, 1),
+        "Angle_w2": random.uniform(-1, 1),
+        "Angle_w3": random.uniform(-1, 1),
+        "Angle_w4": random.uniform(-1, 1),
+        "Angle_w5": random.uniform(-1, 1),
+        "Angle_bias": random.uniform(-1, 1),
+        1: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        2: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        3: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        4: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        5: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        6: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        7: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        8: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        9: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+        10: {
+            "w1": random.uniform(-1, 1),
+            "w2": random.uniform(-1, 1),
+            "w3": random.uniform(-1, 1),
+            "w4": random.uniform(-1, 1),
+            "w5": random.uniform(-1, 1),
+            "bias": random.uniform(-1, 1),
+        },
+    }
+
+
 else:
     Main_Weights = {'Speed_w1': 0.796536583653853, 'Speed_w2': 0.22615713243379773, 'Speed_w3': 0.6234122280654826, 'Speed_w4': -0.22027721437330866, 'Speed_w5': 1.1171746893322971, 'Speed_bias': 2.8491066604611426, 'Angle_w1': -1.4052456338507735, 'Angle_w2': -0.6092271772395608, 'Angle_w3': -0.015173348009286637, 'Angle_w4': 1.0075086063206022, 'Angle_w5': 0.2208286313060719, 'Angle_bias': 0.0987057232102348, 1: {'w1': 1.000842043625676, 'w2': 0.582826061697384, 'w3': -0.5833310580093811, 'w4': 0.050948446656464655, 'w5': -0.026264591539791278, 'bias': 0.21599184349964232}, 2: {'w1': 0.867116584683447, 'w2': -0.9749268110291949, 'w3': -1.0348875197037881, 'w4': 0.22875168949004737, 'w5': 0.04421531923359412, 'bias': 0.38974419823987433}, 3: {'w1': 0.637435372053074, 'w2': -0.4422311633295174, 'w3': 0.3267903072213215, 'w4': 0.051388833276485066, 'w5': -0.7757039038778688, 'bias': 0.5897607512085983}, 4: {'w1': -0.4349923258507262, 'w2': -0.5120769217019586, 'w3': 1.182911084162373, 'w4': -0.06968980269483682, 'w5': -0.14791871773068382, 'bias': 0.7415699998756828}, 5: {'w1': 0.5930985208936138, 'w2': 0.6612152217012288, 'w3': 0.10502706605683068, 'w4': 0.2524824054104977, 'w5': 0.038891781664160005, 'bias': 0.6712380634236212}}
     
@@ -141,22 +237,26 @@ def Get_Outputs(Weights, Raycast1, Raycast2, Raycast3, Speed, Angle):
     Answers = {}
     for Neuron in range(1, 6):
         
-        Ans  = math.tanh((Raycast1 * Weights[Neuron]["w1"]) + (Raycast2 * Weights[Neuron]["w2"]) + (Raycast3 * Weights[Neuron]["w3"]) + (Speed * Weights[Neuron]["w4"]) + (Normalied_Angle * Weights[Neuron]["w5"]) + Weights[Neuron]["bias"])
+        Ans = math.tanh((Raycast1 * Weights[Neuron]["w1"]) + (Raycast2 * Weights[Neuron]["w2"]) + (Raycast3 * Weights[Neuron]["w3"]) + (Speed * Weights[Neuron]["w4"]) + (Normalied_Angle * Weights[Neuron]["w5"]) + Weights[Neuron]["bias"])
         Answers[f"Ans{Neuron}"] = Ans
-    
+
+    for Neuron in range(1, 6):
+        Ans = math.tanh((Answers["Ans1"] * Weights[Neuron][w1]) + (Answers["Ans2"] * Weights[Neuron][w2]) + (Answers["Ans3"] * Weights[Neuron][w3]) + (Answers["Ans4"] * Weights[Neuron][w4]) + (Answers["Ans5"] * Weights[Neuron][w5]) + Weights[Neuron]["bias"])
+        Answers2[f"Ans{Neuron}"] = Ans
+
     Speed_Ans = (
         (math.tanh(
-        (Answers["Ans1"] * Weights["Speed_w1"]) + (Answers["Ans2"] * Weights["Speed_w2"]) + (Answers["Ans3"] * Weights["Speed_w3"]) + (Answers["Ans4"] * Weights["Speed_w4"]) + (Answers["Ans5"] * Weights["Speed_w5"]) + Weights["Speed_bias"])
+        (Answers2["Ans1"] * Weights["Speed_w1"]) + (Answers2["Ans2"] * Weights["Speed_w2"]) + (Answers2["Ans3"] * Weights["Speed_w3"]) + (Answers2["Ans4"] * Weights["Speed_w4"]) + (Answers2["Ans5"] * Weights["Speed_w5"]) + Weights["Speed_bias"])
         +1)
         / 2
     )
     Angle_Ans = (
         Angle + math.tanh(
-            (Answers["Ans1"] * Weights["Angle_w1"]) +
-            (Answers["Ans2"] * Weights["Angle_w2"]) +
-            (Answers["Ans3"] * Weights["Angle_w3"]) +
-            (Answers["Ans4"] * Weights["Angle_w4"]) +
-            (Answers["Ans5"] * Weights["Angle_w5"]) +
+            (Answers2["Ans1"] * Weights["Angle_w1"]) +
+            (Answers2["Ans2"] * Weights["Angle_w2"]) +
+            (Answers2["Ans3"] * Weights["Angle_w3"]) +
+            (Answers2["Ans4"] * Weights["Angle_w4"]) +
+            (Answers2["Ans5"] * Weights["Angle_w5"]) +
             Weights["Angle_bias"]
         ) * 45
     ) % 360
@@ -268,8 +368,8 @@ def Train(Repeats):
 
 def Test_Model():
     Start_GUI()
-    Set_Map(5)
-    Start_Race(Main_Weights, 1, 600)
+    Set_Map(1)
+    Start_Race(Main_Weights, 1, 900)
     Close_GUI()
 
-Train(5)
+Train(10)
