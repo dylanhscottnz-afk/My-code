@@ -26,7 +26,7 @@ def Find_File(Name):
         if file.Name == "Driving_Ai.json":
             Ai_File = file
 
-    All.Json
+    AllJsonfiles = 1
 
 
 def Load_Environment():
