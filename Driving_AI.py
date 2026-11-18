@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 import threading
 import time
+import json
 
-Ai_File = 0
 
 def Locate_Environment():
     filename = "2D_Driving_Environment.py"
@@ -20,13 +20,33 @@ def Locate_Environment():
 
     raise FileNotFoundError(f"Cannot find {filename} in the workspace")
 
-def Find_File(Name):
-    workspace = Path(".")
-    for file in workspace.glob("*.json"):
-        if file.Name == "Driving_Ai.json":
-            Ai_File = file
 
-    AllJsonfiles = 1
+def Find_File():
+    workspace = Path(".")
+    
+    AllJsonfiles = list(workspace.rglob("*.json"))
+    
+    for file in AllJsonfiles:
+        if file.name == "Driving_AI.json":
+            return file
+    return None        
+    
+def Get_File_Contents(file_path):
+    if file_path is None:
+        return None
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+
+def Write_File_Contents(file_path, info):
+    if file_path is None:
+        print("Cannot save: no file path provided.")
+        return
+
+    with open(file_path, "w", encoding="utf-8") as file:
+        json.dump(info, file, indent=4)
 
 
 def Load_Environment():
@@ -86,6 +106,9 @@ epochs = 25
 lr = 0.1
 Clone_Per_Run = 100
 
+TRAIN = False
+TrainWithPreData = True
+
 Raycast1 = 2
 Raycast2 = 3
 Raycast3 = 0
@@ -113,33 +136,14 @@ def Edit_Weights(Weights):
     Weights["Angle_bias"] += random.uniform(-0.2, 0.2)
     return Weights
 
-for Neuron in range(1, 6):
-    N[Neuron] = {}
 
-    N[Neuron]["w1"] = random.uniform(-1, 1)
-    N[Neuron]["w2"] = random.uniform(-1, 1)
-    N[Neuron]["w3"] = random.uniform(-1, 1)
-    N[Neuron]["w4"] = random.uniform(-1, 1)
-    N[Neuron]["w5"] = random.uniform(-1, 1)
-    N[Neuron]["bias"] = random.uniform(-1, 1)
 
-    Ans = (Raycast1 * N[Neuron]["w1"]) + (Raycast2 * N[Neuron]["w2"]) + (Raycast3 * N[Neuron]["w3"]) + (Speed * N[Neuron]["w4"]) + (Angle * N[Neuron]["w5"]) + N[Neuron]["bias"]
-
-Speed_w1 = random.uniform(-1, 1)
-Speed_w2 = random.uniform(-1, 1)
-Speed_w3 = random.uniform(-1, 1)
-Speed_w4 = random.uniform(-1, 1)
-Speed_w5 = random.uniform(-1, 1)
-Speed_bias = random.uniform(-1, 1)
-
-Angle_w1 = random.uniform(-1, 1)
-Angle_w2 = random.uniform(-1, 1)
-Angle_w3 = random.uniform(-1, 1)
-Angle_w4 = random.uniform(-1, 1)
-Angle_w5 = random.uniform(-1, 1)
-Angle_bias = random.uniform(-1, 1)
-
-if False:
+if TRAIN:
+    if TrainWithPreData:
+        File = Find_File()
+    		
+    		Main_Weights = Get_File_Contents(File)
+    else:
     Main_Weights = {
         "Speed_w1": random.uniform(-1, 1),
         "Speed_w2": random.uniform(-1, 1),
@@ -237,8 +241,9 @@ if False:
 
 
 else:
-    Main_Weights = {'Speed_w1': -0.1192898731789136, 'Speed_w2': 0.5810281410413594, 'Speed_w3': -0.20929368737171783, 'Speed_w4': 0.04807645345541944, 'Speed_w5': -0.6895417505509078, 'Speed_bias': 1.3698549263231539, 'Angle_w1': -0.3555135156666236, 'Angle_w2': 0.7723312098125882, 'Angle_w3': 0.7193500794131228, 'Angle_w4': -0.7224781693762062, 'Angle_w5': 0.229854808735252, 'Angle_bias': -0.43717619541873437, 1: {'w1': -0.18389839163275293, 'w2': -0.3654319825347921, 'w3': 0.20537327181070975, 'w4': 0.6145639746871395, 'w5': 0.7679300839472517, 'bias': -0.9002965757877445}, 2: {'w1': -0.37921772953499044, 'w2': -0.3519844831466022, 'w3': 0.41466473644748936, 'w4': 0.39880592446404595, 'w5': -0.09156602516545383, 'bias': 0.49829386068519}, 3: {'w1': -0.4369792706654453, 'w2': -0.3018274183128323, 'w3': -0.45107492423294565, 'w4': -0.258624294272222, 'w5': -0.15778046643493077, 'bias': 0.7342505333909078}, 4: {'w1': 0.6536054344616471, 'w2': 0.19240325476621767, 'w3': -0.6055008932420012, 'w4': 0.7501390958950805, 'w5': -0.3947948834031203, 'bias': -0.14196647837054813}, 5: {'w1': -0.47125162906996154, 'w2': 0.719154225214196, 'w3': 0.8034295687646774, 'w4': 0.9453800691075704, 'w5': 0.09065573832572564, 'bias': 1.2073500251650544}, 6: {'w1': 0.09745268813536967, 'w2': 0.9175544848590846, 'w3': 0.6055466470908539, 'w4': -0.3687418422629587, 'w5': 0.07338000553099566, 'bias': 0.18780466544149887}, 7: {'w1': 0.11187313187609926, 'w2': 0.5124948984879623, 'w3': 0.7866607059830937, 'w4': -0.9360514105860065, 'w5': 0.8133602666384643, 'bias': -0.6078110951933509}, 8: {'w1': -0.794915866654059, 'w2': 0.9808998304941103, 'w3': 0.6040380168982229, 'w4': 0.9285700489620612, 'w5': 0.8176529312516523, 'bias': -0.9830663472501047}, 9: {'w1': -0.8403236538688508, 'w2': -0.6386957533869082, 'w3': -0.5123535122405272, 'w4': -0.05199579875330951, 'w5': 0.6047627120354837, 'bias': -0.32696810733062964}, 10: {'w1': -0.08187825189860098, 'w2': 0.47653911543992344, 'w3': -0.30133517688861167, 'w4': 0.9552464993750285, 'w5': -0.8652576616862881, 'bias': 0.19273932061373644}}      
+    File = Find_File()
     
+    Main_Weights = Get_File_Contents(File)
     
 def Get_Outputs(Weights, Raycast1, Raycast2, Raycast3, Speed, Angle):
     Raycast1 = min(Raycast1 / 400, 1)
@@ -375,7 +380,9 @@ def Train(Repeats):
         Reset()
     
     Close_GUI()
-    print(Main_Weights)
+    File = Find_File()
+    Write_File_Contents(File, Main_Weights)
+
 
 def Test_Model():
 
