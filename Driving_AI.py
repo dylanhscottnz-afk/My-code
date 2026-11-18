@@ -106,8 +106,8 @@ epochs = 25
 lr = 0.1
 Clone_Per_Run = 100
 
-TRAIN = False
-TrainWithPreData = True
+TRAIN = True
+TrainWithPreData = False
 
 Raycast1 = 2
 Raycast2 = 3
@@ -141,103 +141,102 @@ def Edit_Weights(Weights):
 if TRAIN:
     if TrainWithPreData:
         File = Find_File()
-    		
-    		Main_Weights = Get_File_Contents(File)
+        Main_Weights = Get_File_Contents(File)
     else:
-    Main_Weights = {
-        "Speed_w1": random.uniform(-1, 1),
-        "Speed_w2": random.uniform(-1, 1),
-        "Speed_w3": random.uniform(-1, 1),
-        "Speed_w4": random.uniform(-1, 1),
-        "Speed_w5": random.uniform(-1, 1),
-        "Speed_bias": random.uniform(-1, 1),
-        "Angle_w1": random.uniform(-1, 1),
-        "Angle_w2": random.uniform(-1, 1),
-        "Angle_w3": random.uniform(-1, 1),
-        "Angle_w4": random.uniform(-1, 1),
-        "Angle_w5": random.uniform(-1, 1),
-        "Angle_bias": random.uniform(-1, 1),
-        1: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        2: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        3: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        4: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        5: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        6: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        7: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        8: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        9: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-        10: {
-            "w1": random.uniform(-1, 1),
-            "w2": random.uniform(-1, 1),
-            "w3": random.uniform(-1, 1),
-            "w4": random.uniform(-1, 1),
-            "w5": random.uniform(-1, 1),
-            "bias": random.uniform(-1, 1),
-        },
-    }
+        Main_Weights = {
+            "Speed_w1": random.uniform(-1, 1),
+            "Speed_w2": random.uniform(-1, 1),
+            "Speed_w3": random.uniform(-1, 1),
+            "Speed_w4": random.uniform(-1, 1),
+            "Speed_w5": random.uniform(-1, 1),
+            "Speed_bias": random.uniform(-1, 1),
+            "Angle_w1": random.uniform(-1, 1),
+            "Angle_w2": random.uniform(-1, 1),
+            "Angle_w3": random.uniform(-1, 1),
+            "Angle_w4": random.uniform(-1, 1),
+            "Angle_w5": random.uniform(-1, 1),
+            "Angle_bias": random.uniform(-1, 1),
+            1: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            2: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            3: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            4: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            5: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            6: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            7: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            8: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            9: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+            10: {
+                "w1": random.uniform(-1, 1),
+                "w2": random.uniform(-1, 1),
+                "w3": random.uniform(-1, 1),
+                "w4": random.uniform(-1, 1),
+                "w5": random.uniform(-1, 1),
+                "bias": random.uniform(-1, 1),
+            },
+        }
 
 
 else:
