@@ -107,7 +107,7 @@ lr = 0.1
 Clone_Per_Run = 100
 
 TRAIN = True
-TrainWithPreData = False
+TrainWithPreData = True
 
 Raycast1 = 2
 Raycast2 = 3
