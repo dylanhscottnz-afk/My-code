@@ -73,7 +73,7 @@ def Set_Map(Map_Number):
 
 epochs = 10
 lr = 0.05
-Clone_Per_Run = 50
+Clone_Per_Run = 100
 
 Raycast1 = 2
 Raycast2 = 3
@@ -128,7 +128,7 @@ Angle_w4 = random.uniform(-1, 1)
 Angle_w5 = random.uniform(-1, 1)
 Angle_bias = random.uniform(-1, 1)
 
-if True:
+if False:
     Main_Weights = {
         "Speed_w1": random.uniform(-1, 1),
         "Speed_w2": random.uniform(-1, 1),
@@ -226,7 +226,7 @@ if True:
 
 
 else:
-    Main_Weights = {'Speed_w1': 0.796536583653853, 'Speed_w2': 0.22615713243379773, 'Speed_w3': 0.6234122280654826, 'Speed_w4': -0.22027721437330866, 'Speed_w5': 1.1171746893322971, 'Speed_bias': 2.8491066604611426, 'Angle_w1': -1.4052456338507735, 'Angle_w2': -0.6092271772395608, 'Angle_w3': -0.015173348009286637, 'Angle_w4': 1.0075086063206022, 'Angle_w5': 0.2208286313060719, 'Angle_bias': 0.0987057232102348, 1: {'w1': 1.000842043625676, 'w2': 0.582826061697384, 'w3': -0.5833310580093811, 'w4': 0.050948446656464655, 'w5': -0.026264591539791278, 'bias': 0.21599184349964232}, 2: {'w1': 0.867116584683447, 'w2': -0.9749268110291949, 'w3': -1.0348875197037881, 'w4': 0.22875168949004737, 'w5': 0.04421531923359412, 'bias': 0.38974419823987433}, 3: {'w1': 0.637435372053074, 'w2': -0.4422311633295174, 'w3': 0.3267903072213215, 'w4': 0.051388833276485066, 'w5': -0.7757039038778688, 'bias': 0.5897607512085983}, 4: {'w1': -0.4349923258507262, 'w2': -0.5120769217019586, 'w3': 1.182911084162373, 'w4': -0.06968980269483682, 'w5': -0.14791871773068382, 'bias': 0.7415699998756828}, 5: {'w1': 0.5930985208936138, 'w2': 0.6612152217012288, 'w3': 0.10502706605683068, 'w4': 0.2524824054104977, 'w5': 0.038891781664160005, 'bias': 0.6712380634236212}}
+    Main_Weights = {'w1': -0.05287417027328234, 'w2': 0.679829865697915, 'w3': 0.24079001791963012, 'w4': -0.5808080310372988, 'w5': 0.6547910459982553, 'bias': 0.34601015606162805}, 2: {'w1': 0.1969061029360939, 'w2': -0.8812088646249268, 'w3': -0.6504614101925505, 'w4': -0.6482808803065185, 'w5': 0.6058115274192573, 'bias': -0.13565384745230102}, 3: {'w1': -0.9685646727020242, 'w2': 1.608885842386388, 'w3': -0.26874025123011464, 'w4': -0.36406593743652654, 'w5': 0.43307298347351925, 'bias': 0.721086427026127}, 4: {'w1': -0.6577030735399346, 'w2': 0.4663754495170027, 'w3': 1.5121521216612999, 'w4': -0.49223346135308255, 'w5': 0.3953107317864818, 'bias': 0.4170412421469216}, 5: {'w1': 0.14975012314808536, 'w2': 0.8810887052197827, 'w3': -1.2062320872072503, 'w4': -0.4438185129876775, 'w5': -0.5807738840226464, 'bias': 1.2500524693238155}, 6: {'w1': 0.949640164899068, 'w2': -0.16733024598572643, 'w3': 0.05454803784990836, 'w4': -0.29431654375657956, 'w5': 0.059381671828249605, 'bias': 0.10046119147694443}, 7: {'w1': 0.6397298048544262, 'w2': 0.8444580508599953, 'w3': -0.6307415153557108, 'w4': 0.24058101521329123, 'w5': -0.7248793952022885, 'bias': -0.16817149201004922}, 8: {'w1': -0.4427119803324586, 'w2': -0.7950045565709956, 'w3': 0.5410408439154641, 'w4': -0.28714726963367143, 'w5': -0.8797122307805365, 'bias': 0.0910674176473738}, 9: {'w1': 0.17225084310540084, 'w2': -0.30444913335008983, 'w3': 0.40587157711538535, 'w4': 0.49847991371931655, 'w5': 0.8242997970498029, 'bias': -0.7221138698666629}, 10: {'w1': 0.1416140133713657, 'w2': -0.8444177190275686, 'w3': -0.8161445001095344, 'w4': 0.7549478991069491, 'w5': -0.33410090252284963, 'bias': 0.6670339272096519}}     
     
     
 def Get_Outputs(Weights, Raycast1, Raycast2, Raycast3, Speed, Angle):
@@ -240,10 +240,10 @@ def Get_Outputs(Weights, Raycast1, Raycast2, Raycast3, Speed, Angle):
         Ans = math.tanh((Raycast1 * Weights[Neuron]["w1"]) + (Raycast2 * Weights[Neuron]["w2"]) + (Raycast3 * Weights[Neuron]["w3"]) + (Speed * Weights[Neuron]["w4"]) + (Normalied_Angle * Weights[Neuron]["w5"]) + Weights[Neuron]["bias"])
         Answers[f"Ans{Neuron}"] = Ans
 
-    for Neuron in range(1, 6):
-        Ans = math.tanh((Answers["Ans1"] * Weights[Neuron][w1]) + (Answers["Ans2"] * Weights[Neuron][w2]) + (Answers["Ans3"] * Weights[Neuron][w3]) + (Answers["Ans4"] * Weights[Neuron][w4]) + (Answers["Ans5"] * Weights[Neuron][w5]) + Weights[Neuron]["bias"])
-        Answers2[f"Ans{Neuron}"] = Ans
-
+    for Neuron in range(6, 11):
+        Ans = math.tanh((Answers["Ans1"] * Weights[Neuron]["w1"]) + (Answers["Ans2"] * Weights[Neuron]["w2"]) + (Answers["Ans3"] * Weights[Neuron]["w3"]) + (Answers["Ans4"] * Weights[Neuron]["w4"]) + (Answers["Ans5"] * Weights[Neuron]["w5"]) + Weights[Neuron]["bias"])
+        Answers2[f"Ans{Neuron-5}"] = Ans
+    
     Speed_Ans = (
         (math.tanh(
         (Answers2["Ans1"] * Weights["Speed_w1"]) + (Answers2["Ans2"] * Weights["Speed_w2"]) + (Answers2["Ans3"] * Weights["Speed_w3"]) + (Answers2["Ans4"] * Weights["Speed_w4"]) + (Answers2["Ans5"] * Weights["Speed_w5"]) + Weights["Speed_bias"])
@@ -357,7 +357,7 @@ def Train(Repeats):
         Map += 1
         if Map > 5:
             Map -= 5
-        Set_Map(5)
+        Set_Map(Map)
         weights = Start_Race(Main_Weights, Clone_Per_Run, 900)
         Main_Weights = weights
 
@@ -367,9 +367,11 @@ def Train(Repeats):
     print(Main_Weights)
 
 def Test_Model():
+
+    global Main_Weights
     Start_GUI()
     Set_Map(1)
     Start_Race(Main_Weights, 1, 900)
     Close_GUI()
 
-Train(10)
+Train(30)
