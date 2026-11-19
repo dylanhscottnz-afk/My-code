@@ -123,7 +123,7 @@ Car_Info = {}
 
 def Edit_Weights(Weights):
     Weights = copy.deepcopy(Weights)
-    for Num in range(1, 6):
+    for Num in range(1, 11):
         for W in range(1, 6):
             Weights[Num][f"w{W}"] += random.uniform(-lr, lr)
         Weights[Num]["bias"] += random.uniform(-lr, lr)
