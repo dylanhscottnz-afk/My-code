@@ -101,7 +101,7 @@ def Set_Map(Map_Number):
 epochs = 25
 lr = 0.1
 Clone_Per_Run = 100
-TRAIN = True
+TRAIN = False
 TrainWithPreData = False
 
 Training_Clones = {}
@@ -288,7 +288,7 @@ def Train(Repeats):
 
 def Test_Model():
     Start_GUI()
-    Set_Map(1)
+    Set_Map(5)
     Start_Race(Main_Weights, 1, 900)
     Reset()
     Close_GUI()
@@ -297,4 +297,4 @@ def Test_Model():
 
 
 
-Train(20)
+Test_Model()
