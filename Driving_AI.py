@@ -102,7 +102,7 @@ epochs = 25
 lr = 0.1
 Clone_Per_Run = 100
 TRAIN = True
-TrainWithPreData = True
+TrainWithPreData = False
 
 Training_Clones = {}
 Car_Info = {}
