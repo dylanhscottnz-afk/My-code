@@ -99,10 +99,10 @@ def Set_Map(Map_Number):
 
 
 epochs = 25
-lr = 0.1
-Clone_Per_Run = 100
-TRAIN = False
-TrainWithPreData = False
+lr = 0.05
+Clone_Per_Run = 50
+TRAIN = True
+TrainWithPreData = True
 
 Training_Clones = {}
 Car_Info = {}
@@ -297,4 +297,4 @@ def Test_Model():
 
 
 
-Test_Model()
+Train(10)
